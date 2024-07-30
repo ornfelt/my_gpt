@@ -11,6 +11,7 @@ https://github.com/sugarforever/chat-ollama
 https://github.com/0xacx/chatGPT-shell-cli
 https://github.com/EltonSetan/ChatCMD
 https://github.com/ggozad/oterm
+https://github.com/nomic-ai/gpt4all
 
 # copilot
 https://github.com/ex3ndr/llama-coder

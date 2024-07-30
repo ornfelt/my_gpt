@@ -26,6 +26,9 @@ EltonSetan_ChatCMD [cmd/EltonSetan_ChatCMD](cmd/EltonSetan_ChatCMD)
 ggozad_oterm [cmd/ggozad_oterm](cmd/ggozad_oterm)
 
 
+nomic-ai_gpt4all [cmd/nomic-ai_gpt4all](cmd/nomic-ai_gpt4all)
+
+
 bernardo-bruning_ollama-copilot [copilot/bernardo-bruning_ollama-copilot](copilot/bernardo-bruning_ollama-copilot)
 
 
