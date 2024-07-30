@@ -1,0 +1,30 @@
+# vim
+https://github.com/David-Kunz/gen.nvim
+https://github.com/nomnivore/ollama.nvim
+https://github.com/huynle/ogpt.nvim
+
+# web
+https://github.com/open-webui/open-webui
+https://github.com/sugarforever/chat-ollama
+
+# cmd
+https://github.com/0xacx/chatGPT-shell-cli
+https://github.com/EltonSetan/ChatCMD
+https://github.com/ggozad/oterm
+
+# copilot
+https://github.com/ex3ndr/llama-coder
+https://github.com/bernardo-bruning/ollama-copilot
+
+# discord
+https://github.com/rapmd73/Companion
+https://github.com/mekb-turtle/discord-ai-bot
+
+# bindings
+https://github.com/awaescher/OllamaSharp
+
+# notebooks
+https://github.com/mshumer/gpt-prompt-engineer
+https://github.com/neo4j-labs/llm-graph-builder
+https://github.com/meta-llama/llama-recipes
+https://github.com/stefan-jansen/machine-learning-for-trading

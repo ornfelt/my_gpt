@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# Crontab entry ( without hash mark #
+# @reboot ( /home/Companion/LauncherCompanion & ) > /dev/null 2>&1
+
+export OLLAMA_HOST=http://fully-shareware.gl.at.ply.gg:19758/api/generate
+
+BaseDir="/home/Companion"
+
+cd $BaseDir
+
+while true ; do
+    $BaseDir/Companion
+    sleep 60
+done
