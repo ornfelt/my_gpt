@@ -1,0 +1,316 @@
+name: Build
+on:
+  push:
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: "20"
+      - name: Install modules
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Download latest llama.cpp release
+        env:
+          CI: true
+        run: node ./dist/cli/cli.js download --release latest --skipBuild --noBundle --updateBinariesReleaseMetadataAndSaveGitBundle
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: "build"
+          path: "dist"
+      - name: Upload binariesGithubRelease.json artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: "binariesGithubRelease"
+          path: "llama/binariesGithubRelease.json"
+      - name: Upload llama.cpp artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: "llama.cpp"
+          path: "llama/llama.cpp"
+      - name: Upload gitRelease.bundle artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: "gitReleaseBundle"
+          path: "llama/gitRelease.bundle"
+
+  build-binaries:
+    name: Build binaries - ${{ matrix.config.name }}
+    needs:
+      - build
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - name: "Windows MSVC"
+            os: windows-2022
+            cc: "cl"
+            cxx: "cl"
+            environment_script: "C:/Program Files (x86)/Microsoft Visual Studio/2019/Enterprise/VC/Auxiliary/Build/vcvars64.bat"
+            generators: "Visual Studio 17 2022"
+            artifact: "win"
+          - name: "Ubuntu GCC"
+            os: ubuntu-22.04
+            cc: "gcc"
+            cxx: "g++"
+            generators: "Ninja"
+            artifact: "linux"
+          - name: "macOS Clang"
+            os: macos-12
+            cc: "clang"
+            cxx: "clang++"
+            generators: "Xcode"
+            artifact: "mac"
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: "20"
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: build
+          path: dist
+
+      - name: Download llama.cpp artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: llama.cpp
+          path: llama/llama.cpp
+
+      - name: Install dependencies on windows
+        if: startsWith(matrix.config.os, 'windows')
+        run: |
+          choco install ninja cmake
+
+      - name: Install dependencies on ubuntu
+        if: startsWith(matrix.config.name, 'Ubuntu GCC')
+        run: |
+          sudo apt-get update
+          sudo apt-get install ninja-build cmake libtbb-dev g++-aarch64-linux-gnu gcc-aarch64-linux-gnu g++-arm-linux-gnueabihf gcc-arm-linux-gnueabihf
+          
+          which aarch64-linux-gnu-gcc
+          which aarch64-linux-gnu-g++
+          
+          which arm-linux-gnueabihf-gcc
+          which arm-linux-gnueabihf-g++
+
+      - name: Install dependencies on macos
+        if: startsWith(matrix.config.os, 'macos')
+        run: |
+          brew install cmake ninja
+          alias make=cmake
+
+      - name: Setup & Build
+        id: build
+        shell: bash
+        timeout-minutes: 40
+        env:
+          ARTIFACT_NAME: ${{ matrix.config.artifact }}
+          NODE_LLAMA_CPP_CMAKE_OPTION_LLAMA_OPENMP: OFF
+        run: |
+          npm ci
+          
+          npx zx -y <<'EOF'
+          
+          async function getLatestNodeVersions(maxDate) {
+            const res = await fetch("https://nodejs.org/dist/index.json");
+            const data = await res.json();
+            const versions = new Map();
+            let latestVersion = null;
+            
+            for (const version of data) {
+              const majorVersion = Number(version.version.split(".")[0].slice("v".length));
+              const versionDate = new Date(version.date);
+              
+              if (maxDate != null && versionDate.getTime() > maxDate)
+                continue;
+              
+              if (!versions.has(majorVersion)) {
+                versions.set(majorVersion, version.version);
+              }
+              
+              if (latestVersion === null || majorVersion > latestVersion) {
+                latestVersion = majorVersion;
+              }
+            }
+            
+            return {versions, latestVersion};
+          }
+          
+          function getArches() {
+            switch (process.env.ARTIFACT_NAME) {
+              case "win":
+                return ["x64" /*, "arm64" */ ]; // disabled arm64 for now as compilation doesn't work
+              case "linux":
+                return ["x64", "arm64", "armv7l"];
+              case "mac":
+                return ["x64", "arm64"];
+            }
+            
+            return ["x64"];
+          }
+          
+          const {versions: latestNodeVersions} = await getLatestNodeVersions(Date.now() - 1000 * 60 * 60 * 24 * 14);
+          
+          const nodeVersion = latestNodeVersions.get(18);
+          const windowsOnArmNodeVersion = latestNodeVersions.get(20);
+          const arches = getArches();
+          
+          if (nodeVersion == null || windowsOnArmNodeVersion == null) {
+            throw new Error("Could not find node versions");
+          }
+          
+          console.log("Building for node version", nodeVersion, "and archs", arches);
+          
+          await $`mkdir -p llamaBins`;
+          
+          for (const arch of arches) {
+            let buildNodeVersion = nodeVersion;
+            
+            if (process.env.ARTIFACT_NAME === "win" && arch === "arm64") {
+              buildNodeVersion = windowsOnArmNodeVersion;
+            }
+            
+            console.log(`Building ${arch} for node ${buildNodeVersion}`);
+            
+            const binName = `${process.env.ARTIFACT_NAME}-${arch}`; 
+            await $`node ./dist/cli/cli.js build --arch ${arch} --nodeTarget ${buildNodeVersion}`;
+            await $`mv ./llama/build/Release ${"./llamaBins/" + binName}`;
+          }
+          
+          await $`echo "Built binaries:"`;
+          await $`ls llamaBins`;
+          
+          EOF
+
+      - name: Publish artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: "bins-${{ matrix.config.artifact }}"
+          path: "llamaBins/*"
+
+  standalone-tests:
+    name: Standalone tests
+    runs-on: ubuntu-22.04
+    needs:
+      - build
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: "20"
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: build
+          path: dist
+
+      - name: Download llama.cpp artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: llama.cpp
+          path: llama/llama.cpp
+
+      - name: Install dependencies on ubuntu
+        run: |
+          sudo apt-get update
+          sudo apt-get install ninja-build cmake 
+
+      - name: Install modules
+        run: npm ci
+
+      - name: Build binary
+        run: node ./dist/cli/cli.js build
+
+      - name: Run standalone tests
+        run: npm run test:standalone
+
+  release:
+    name: Release
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    concurrency: release-${{ github.ref }}
+    environment:
+      name: npm
+      url: ${{ steps.set-npm-url.outputs.npm-url }}
+    permissions:
+      pages: write
+      id-token: write
+      contents: write
+      issues: write
+      pull-requests: write
+    needs:
+      - build
+      - build-binaries
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          lfs: true
+      - uses: actions/setup-node@v3
+        with:
+          node-version: "20"
+      - name: Install modules
+        run: npm ci
+      - uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+      - name: Move artifacts
+        run: |
+          mkdir -p llamaBins
+          mv artifacts/bins-*/* llamaBins/
+          mv artifacts/build dist/
+          
+          cp -r artifacts/llama.cpp/grammars llama/grammars
+          
+          rm -f ./llama/binariesGithubRelease.json
+          mv artifacts/binariesGithubRelease/binariesGithubRelease.json ./llama/binariesGithubRelease.json
+          
+          rm -f ./llama/gitRelease.bundle
+          mv artifacts/gitReleaseBundle/gitRelease.bundle ./llama/gitRelease.bundle
+          
+          echo "Built binaries:"
+          ls llamaBins
+      - name: Add "postinstall" script to package.json
+        run: npm run addPostinstallScript
+      - name: Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npx semantic-release
+      - name: Set npm package url to GITHUB_OUTPUT
+        id: set-npm-url
+        run: |
+          if [ -f .semanticRelease.npmPackage.deployedVersion.txt ]; then
+            echo "npm-url=https://www.npmjs.com/package/node-llama-cpp/v/$(cat .semanticRelease.npmPackage.deployedVersion.txt)" >> $GITHUB_OUTPUT
+          fi
+      - name: Generate docs with updated version
+        if: steps.set-npm-url.outputs.npm-url != ''
+        env:
+          DOCS_URL_BASE: "/node-llama-cpp/"
+        run: |
+          export DOCS_PACKAGE_VERSION=$(cat .semanticRelease.npmPackage.deployedVersion.txt)
+          npm run docs:build
+      - name: Upload docs to GitHub Pages
+        if: steps.set-npm-url.outputs.npm-url != ''
+        uses: actions/upload-pages-artifact@v2
+        with:
+          name: pages-docs
+          path: docs-site
+      - name: Deploy docs to GitHub Pages
+        if: steps.set-npm-url.outputs.npm-url != ''
+        uses: actions/deploy-pages@v2
+        with:
+          artifact_name: pages-docs

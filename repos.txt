@@ -6,6 +6,7 @@ https://github.com/huynle/ogpt.nvim
 # web
 https://github.com/open-webui/open-webui
 https://github.com/sugarforever/chat-ollama
+https://github.com/nat/openplayground
 
 # cmd
 https://github.com/0xacx/chatGPT-shell-cli
@@ -23,6 +24,16 @@ https://github.com/mekb-turtle/discord-ai-bot
 
 # bindings
 https://github.com/awaescher/OllamaSharp
+https://github.com/abetlen/llama-cpp-python
+https://github.com/go-skynet/go-llama.cpp
+https://github.com/withcatai/node-llama-cpp
+https://github.com/mdrokz/rust-llama.cpp
+https://github.com/SciSharp/LLamaSharp
+https://github.com/kherud/java-llama.cpp
+
+# random
+https://github.com/MorganRO8/Lucys_Labyrinth
+https://github.com/microsoft/JARVIS
 
 # notebooks
 https://github.com/mshumer/gpt-prompt-engineer

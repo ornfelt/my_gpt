@@ -11,6 +11,9 @@ huynle_ogpt.nvim [vim/huynle_ogpt.nvim](vim/huynle_ogpt.nvim)
 nomnivore_ollama.nvim [vim/nomnivore_ollama.nvim](vim/nomnivore_ollama.nvim)
 
 
+nat_openplayground [web/nat_openplayground](web/nat_openplayground)
+
+
 open-webui_open-webui [web/open-webui_open-webui](web/open-webui_open-webui)
 
 
@@ -41,7 +44,28 @@ mekb-turtle_discord-ai-bot [discord/mekb-turtle_discord-ai-bot](discord/mekb-tur
 rapmd73_Companion [discord/rapmd73_Companion](discord/rapmd73_Companion)
 
 
+abetlen_llama-cpp-python [bindings/abetlen_llama-cpp-python](bindings/abetlen_llama-cpp-python)
+
+
 awaescher_OllamaSharp [bindings/awaescher_OllamaSharp](bindings/awaescher_OllamaSharp)
+
+
+go-skynet_go-llama.cpp [bindings/go-skynet_go-llama.cpp](bindings/go-skynet_go-llama.cpp)
+
+
+kherud_java-llama.cpp [bindings/kherud_java-llama.cpp](bindings/kherud_java-llama.cpp)
+
+
+mdrokz_rust-llama.cpp [bindings/mdrokz_rust-llama.cpp](bindings/mdrokz_rust-llama.cpp)
+
+
+SciSharp_LLamaSharp [bindings/SciSharp_LLamaSharp](bindings/SciSharp_LLamaSharp)
+
+
+withcatai_node-llama-cpp [bindings/withcatai_node-llama-cpp](bindings/withcatai_node-llama-cpp)
+
+
+MorganRO8_Lucys_Labyrinth [random/MorganRO8_Lucys_Labyrinth](random/MorganRO8_Lucys_Labyrinth)
 
 
 meta-llama_llama-recipes [notebooks/meta-llama_llama-recipes](notebooks/meta-llama_llama-recipes)

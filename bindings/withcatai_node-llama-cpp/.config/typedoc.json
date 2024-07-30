@@ -1,0 +1,22 @@
+{
+    "$schema": "https://typedoc.org/schema.json",
+    "entryPoints": ["../src/index.ts"],
+    "out": "../docs/api",
+    "tsconfig": "../tsconfig.json",
+    "customCss": "./typedoc.css",
+    "readme": "../README.md",
+    "excludeExternals": true,
+    "excludeInternal": true,
+    "excludePrivate": true,
+    "githubPages": true,
+    "hideGenerator": true,
+    "jsDocCompatibility": true,
+    "htmlLang": "en",
+    "plugin": ["typedoc-plugin-markdown", "typedoc-vitepress-theme", "typedoc-plugin-mdn-links"],
+    "hideBreadcrumbs": true,
+    "hidePageHeader": true,
+    "preserveAnchorCasing": true,
+    "useCodeBlocks": true,
+    "expandObjects": true,
+    "parametersFormat": "table"
+}
