@@ -27,4 +27,5 @@ https://github.com/awaescher/OllamaSharp
 https://github.com/mshumer/gpt-prompt-engineer
 https://github.com/neo4j-labs/llm-graph-builder
 https://github.com/meta-llama/llama-recipes
-https://github.com/stefan-jansen/machine-learning-for-trading
+https://github.com/mshumer/gpt-investor
+https://github.com/mshumer/gpt-author

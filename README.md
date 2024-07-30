@@ -44,12 +44,15 @@ awaescher_OllamaSharp [bindings/awaescher_OllamaSharp](bindings/awaescher_Ollama
 meta-llama_llama-recipes [notebooks/meta-llama_llama-recipes](notebooks/meta-llama_llama-recipes)
 
 
+mshumer_gpt-author [notebooks/mshumer_gpt-author](notebooks/mshumer_gpt-author)
+
+
+mshumer_gpt-investor [notebooks/mshumer_gpt-investor](notebooks/mshumer_gpt-investor)
+
+
 mshumer_gpt-prompt-engineer [notebooks/mshumer_gpt-prompt-engineer](notebooks/mshumer_gpt-prompt-engineer)
 
 
 neo4j-labs_llm-graph-builder [notebooks/neo4j-labs_llm-graph-builder](notebooks/neo4j-labs_llm-graph-builder)
-
-
-stefan-jansen_machine-learning-for-trading [notebooks/stefan-jansen_machine-learning-for-trading](notebooks/stefan-jansen_machine-learning-for-trading)
 
 
