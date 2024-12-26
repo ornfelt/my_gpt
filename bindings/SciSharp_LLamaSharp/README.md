@@ -8,7 +8,7 @@
 [![LLamaSharp Badge](https://img.shields.io/nuget/v/LLamaSharp.Backend.Cuda12?label=LLamaSharp.Backend.Cuda12)](https://www.nuget.org/packages/LLamaSharp.Backend.Cuda12)
 [![LLamaSharp Badge](https://img.shields.io/nuget/v/LLamaSharp.semantic-kernel?label=LLamaSharp.semantic-kernel)](https://www.nuget.org/packages/LLamaSharp.semantic-kernel)
 [![LLamaSharp Badge](https://img.shields.io/nuget/v/LLamaSharp.kernel-memory?label=LLamaSharp.kernel-memory)](https://www.nuget.org/packages/LLamaSharp.kernel-memory)
-[![LLamaSharp Badge](https://img.shields.io/nuget/v/LLamaSharp.Backend.OpenCL?label=LLamaSharp.Backend.OpenCL)](https://www.nuget.org/packages/LLamaSharp.Backend.OpenCL)
+[![LLamaSharp Badge](https://img.shields.io/nuget/v/LLamaSharp.Backend.Vulkan?label=LLamaSharp.Backend.Vulkan)](https://www.nuget.org/packages/LLamaSharp.Backend.Vulkan)
 
 
 **LLamaSharp is a cross-platform library to run 🦙LLaMA/LLaVA model (and others) on your local device. Based on [llama.cpp](https://github.com/ggerganov/llama.cpp), inference with LLamaSharp is efficient on both CPU and GPU. With the higher-level APIs and RAG support, it's convenient to deploy LLMs (Large Language Models) in your application with LLamaSharp.**
@@ -75,15 +75,16 @@ The following examples show how to build APPs with LLamaSharp.
 - [Blazor Demo (with Model Explorer)](https://github.com/alexhiggins732/BLlamaSharp.ChatGpt.Blazor)
 - [ASP.NET Demo](./LLama.Web/)
 - [LLamaWorker (ASP.NET Web API like OAI and Function Calling Support)](https://github.com/sangyuxiaowu/LLamaWorker)
+- [VirtualPet (Desktop Application)](https://github.com/AcoranGonzalezMoray/VirtualPet-WindowsEdition)
 
-![LLamaShrp-Integrations](./Assets/LLamaSharp-Integrations.png)
+![LLamaSharp-Integrations](./Assets/LLamaSharp-Integrations.png)
 
 
 ## 🚀Get started
 
 ### Installation
 
-To gain high performance, LLamaSharp interacts with native libraries compiled from c++, these are called `backends`. We provide backend packages for Windows, Linux and Mac with CPU, CUDA, Metal and OpenCL. You **don't** need to compile any c++, just install the backend packages.
+To gain high performance, LLamaSharp interacts with native libraries compiled from c++, these are called `backends`. We provide backend packages for Windows, Linux and Mac with CPU, CUDA, Metal and Vulkan. You **don't** need to compile any c++, just install the backend packages.
 
 If no published backend matches your device, please open an issue to let us know. If compiling c++ code is not difficult for you, you could also follow [this guide](./docs/ContributingGuide.md) to compile a backend and run LLamaSharp with it.
 
@@ -144,7 +145,9 @@ ChatSession session = new(executor, chatHistory);
 InferenceParams inferenceParams = new InferenceParams()
 {
     MaxTokens = 256, // No more than 256 tokens should appear in answer. Remove it if antiprompt is enough for control.
-    AntiPrompts = new List<string> { "User:" } // Stop generation once antiprompts appear.
+    AntiPrompts = new List<string> { "User:" }, // Stop generation once antiprompts appear.
+
+    SamplingPipeline = new DefaultSamplingPipeline(),
 };
 
 Console.ForegroundColor = ConsoleColor.Yellow;
@@ -175,7 +178,7 @@ For more examples, please refer to [LLamaSharp.Examples](./LLama.Examples).
 
 #### Why is my GPU not used when I have installed CUDA?
 
-1. If you are using backend packages, please make sure you have installed the CUDA backend package which matches the CUDA version installed on your system. Please note that before LLamaSharp v0.10.0, only one backend package should be installed at a time.
+1. If you are using backend packages, please make sure you have installed the CUDA backend package which matches the CUDA version installed on your system.
 2. Add the following line to the very beginning of your code. The log will show which native library file is loaded. If the CPU library is loaded, please try to compile the native library yourself and open an issue for that. If the CUDA library is loaded, please check if `GpuLayerCount > 0` when loading the model weight.
 
 ```cs
@@ -189,7 +192,7 @@ Firstly, due to the large size of LLM models, it requires more time to generate 
 
 To see if that's a LLamaSharp performance issue, please follow the two tips below.
 
-1. If you are using CUDA, Metal or OpenCL, please set `GpuLayerCount` as large as possible.
+1. If you are using CUDA, Metal or Vulkan, please set `GpuLayerCount` as large as possible.
 2. If it's still slower than you expect it to be, please try to run the same model with same setting in [llama.cpp examples](https://github.com/ggerganov/llama.cpp/tree/master/examples). If llama.cpp outperforms LLamaSharp significantly, it's likely a LLamaSharp BUG and please report that to us.
 
 
@@ -251,8 +254,14 @@ If you want to compile llama.cpp yourself you **must** use the exact commit ID l
 | v0.11.1, v0.11.2 | [LLaVA-v1.5](https://hf-mirror.com/jartine/llava-v1.5-7B-GGUF/blob/main/llava-v1.5-7b-mmproj-Q4_0.gguf), [Phi2](https://huggingface.co/TheBloke/phi-2-GGUF)| [`3ab8b3a`](https://github.com/ggerganov/llama.cpp/tree/3ab8b3a92ede46df88bc5a2dfca3777de4a2b2b6) |
 | v0.12.0 | LLama3 | [`a743d76`](https://github.com/ggerganov/llama.cpp/tree/a743d76a01f23038b2c85af1e9048ee836767b44) |
 | v0.13.0 | | [`1debe72`](https://github.com/ggerganov/llama.cpp/tree/1debe72737ea131cb52975da3d53ed3a835df3a6) |
-| v0.14.0 | Gemma2 | [`368645698ab648e390dcd7c00a2bf60efa654f57`](https://github.com/ggerganov/llama.cpp/tree/368645698ab648e390dcd7c00a2bf60efa654f57) |
+| v0.14.0 | Gemma2 | [`36864569`](https://github.com/ggerganov/llama.cpp/tree/368645698ab648e390dcd7c00a2bf60efa654f57) |
+| v0.15.0 | LLama3.1 | [`345c8c0c`](https://github.com/ggerganov/llama.cpp/tree/345c8c0c87a97c1595f9c8b14833d531c8c7d8df) |
+| v0.16.0 |  | [`11b84eb4`](https://github.com/ggerganov/llama.cpp/tree/11b84eb4578864827afcf956db5b571003f18180) |
+| v0.17.0 |  | [`c35e586e`](https://github.com/ggerganov/llama.cpp/tree/c35e586ea57221844442c65a1172498c54971cb0) |
+| v0.18.0 |  | [`c35e586e`](https://github.com/ggerganov/llama.cpp/tree/c35e586ea57221844442c65a1172498c54971cb0) |
+| v0.19.0 |  | [`958367bf`](https://github.com/ggerganov/llama.cpp/tree/958367bf530d943a902afa1ce1c342476098576b) |
 
 ## License
 
 This project is licensed under the terms of the MIT license.
+

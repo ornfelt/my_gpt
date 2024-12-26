@@ -1,12 +1,13 @@
-import axios, { AxiosResponse, Method } from 'axios';
+import { AxiosResponse, Method } from 'axios';
 import { UserCredentials, FormDataParams } from '../types';
+import api from '../API/Index';
 
 // API Call
 const apiCall = async (
   url: string,
   method: Method,
   commonParams: UserCredentials,
-  additionalParams: FormDataParams
+  additionalParams: Partial<FormDataParams>
 ) => {
   try {
     const formData = new FormData();
@@ -16,7 +17,7 @@ const apiCall = async (
     for (const key in additionalParams) {
       formData.append(key, additionalParams[key]);
     }
-    const response: AxiosResponse = await axios({
+    const response: AxiosResponse = await api({
       method: method,
       url: url,
       data: formData,

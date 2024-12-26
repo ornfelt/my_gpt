@@ -22,11 +22,17 @@ jobs:
         # cmake should figure out OS and ARCH automatically when running build.sh (but we need mvn compile for it)
         run: |
           mvn compile
-          .github/build.sh
+          .github/build.sh -DLLAMA_VERBOSE=ON
       - name: Download model
         run: curl -L ${MODEL_URL} --create-dirs -o models/${MODEL_NAME}
       - name: Run tests
         run: mvn test
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: error-log-linux
+          path: ${{ github.workspace }}/hs_err_pid*.log
+          if-no-files-found: warn
 
   build-and-test-macos:
     name: ${{ matrix.target.runner }}
@@ -37,11 +43,11 @@ jobs:
         target:
           - {
             runner: macos-13,
-            cmake: '-DLLAMA_METAL=OFF'
+            cmake: '-DLLAMA_METAL=OFF -DLLAMA_VERBOSE=ON'
           }
           - {
             runner: macos-14,
-            cmake: '-DLLAMA_METAL_EMBED_LIBRARY=ON -DLLAMA_METAL=OFF'
+            cmake: '-DLLAMA_METAL_EMBED_LIBRARY=ON -DLLAMA_METAL=OFF -DLLAMA_VERBOSE=ON'
           }
     steps:
       - uses: actions/checkout@v4
@@ -57,6 +63,12 @@ jobs:
         run: curl -L ${MODEL_URL} --create-dirs -o models/${MODEL_NAME}
       - name: Run tests
         run: mvn test
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: error-log-macos
+          path: ${{ github.workspace }}/hs_err_pid*.log
+          if-no-files-found: warn
 
   build-and-test-windows:
     name: windows-latest
@@ -70,8 +82,14 @@ jobs:
       - name: Build libraries
         run: |
           mvn compile
-          .github\build.bat
+          .github\build.bat -DLLAMA_VERBOSE=ON
       - name: Download model
         run: curl -L $env:MODEL_URL --create-dirs -o models/$env:MODEL_NAME
       - name: Run tests
         run: mvn test
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: error-log-windows
+          path: ${{ github.workspace }}\hs_err_pid*.log
+          if-no-files-found: warn

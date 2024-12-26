@@ -50,6 +50,14 @@ namespace LLama.Native
         public static extern bool llama_supports_gpu_offload();
 
         /// <summary>
+        /// Check if RPC offload is supported
+        /// </summary>
+        /// <returns></returns>
+        [DllImport(libraryName, CallingConvention = CallingConvention.Cdecl)]
+        [return: MarshalAs(UnmanagedType.U1)]
+        public static extern bool llama_supports_rpc();
+
+        /// <summary>
         /// Initialize the llama + ggml backend. Call once at the start of the program.
         ///
         /// This is private because LLamaSharp automatically calls it, and it's only valid to call it once!
@@ -132,30 +140,6 @@ namespace LLama.Native
         public static extern uint llama_n_seq_max(SafeLLamaContextHandle ctx);
 
         /// <summary>
-        /// Get the pooling type for this context
-        /// </summary>
-        /// <param name="ctx"></param>
-        /// <returns></returns>
-        [DllImport(libraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern LLamaPoolingType llama_pooling_type(SafeLLamaContextHandle ctx);
-
-        /// <summary>
-        /// Get the embeddings for the a specific sequence.
-        /// Equivalent to: llama_get_embeddings(ctx) + ctx->output_ids[i]*n_embd
-        /// </summary>
-        /// <returns>A pointer to the first float in an embedding, length = ctx.EmbeddingSize</returns>
-        [DllImport(libraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern unsafe float* llama_get_embeddings_seq(SafeLLamaContextHandle ctx, LLamaSeqId id);
-
-        /// <summary>
-        /// Get the embeddings for the ith sequence.
-        /// Equivalent to: llama_get_embeddings(ctx) + ctx->output_ids[i]*n_embd
-        /// </summary>
-        /// <returns>A pointer to the first float in an embedding, length = ctx.EmbeddingSize</returns>
-        [DllImport(libraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern unsafe float* llama_get_embeddings_ith(SafeLLamaContextHandle ctx, int i);
-
-        /// <summary>
         /// Get all output token embeddings.
         /// When pooling_type == LLAMA_POOLING_TYPE_NONE or when using a generative model, the embeddings for which
         /// llama_batch.logits[i] != 0 are stored contiguously in the order they have appeared in the batch.
@@ -188,19 +172,13 @@ namespace LLama.Native
             static extern int internal_llama_chat_apply_template(IntPtr model, byte* tmpl, LLamaChatMessage* chat, nuint n_msg, [MarshalAs(UnmanagedType.U1)] bool add_ass, byte* buf, int length);
         }
 
-        /// <summary>
-        /// Returns -1 if unknown, 1 for true or 0 for false.
-        /// </summary>
-        /// <returns></returns>
         [DllImport(libraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int llama_add_bos_token(SafeLlamaModelHandle model);
+        [return: MarshalAs(UnmanagedType.U1)]
+        public static extern bool llama_add_bos_token(SafeLlamaModelHandle model);
 
-        /// <summary>
-        /// Returns -1 if unknown, 1 for true or 0 for false.
-        /// </summary>
-        /// <returns></returns>
         [DllImport(libraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int llama_add_eos_token(SafeLlamaModelHandle model);
+        [return: MarshalAs(UnmanagedType.U1)]
+        public static extern bool llama_add_eos_token(SafeLlamaModelHandle model);
 
         /// <summary>
         /// Print out timing information for this context
@@ -445,5 +423,23 @@ namespace LLama.Native
         /// <returns>Returns the split_prefix length.</returns>
         [DllImport(libraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int llama_split_prefix(string split_prefix, nuint maxlen, string split_path, int split_no, int split_count);
+
+        /// <summary>
+        /// Manually free a LoRA adapter. loaded adapters will be free when the associated model is deleted
+        /// </summary>
+        /// <param name="adapter"></param>
+        [DllImport(libraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void llama_lora_adapter_free(IntPtr adapter);
+
+        //[DllImport(libraryName, CallingConvention = CallingConvention.Cdecl)]
+        //todo: public static void llama_attach_threadpool(SafeLLamaContextHandle ctx, ggml_threadpool_t threadpool, ggml_threadpool_t threadpool_batch);
+
+        //[DllImport(libraryName, CallingConvention = CallingConvention.Cdecl)]
+        //todo: public static void llama_detach_threadpool(SafeLLamaContextHandle ctx);
+
+        // SafeLLamaContextHandle already holds a back reference to the model, so this is never needed. Implementing it would be dangerous because
+        // it would expose the raw pointer to the model, without properly wrapping it in a SafeLLamaModelHandle.
+        //[DllImport(libraryName, CallingConvention = CallingConvention.Cdecl)]
+        //public static void llama_model* llama_get_model(SafeLLamaContextHandle ctx);
     }
 }

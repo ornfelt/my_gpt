@@ -6,6 +6,7 @@ public class ExampleRunner
     private static readonly Dictionary<string, Func<Task>> Examples = new()
     {
         { "Chat Session: LLama3", LLama3ChatSession.Run },
+        { "Chat Session: LLama2", LLama2ChatSession.Run },
         { "Chat Session: History", ChatSessionWithHistory.Run },
         { "Chat Session: Role names", ChatSessionWithRoleName.Run },
         { "Chat Session: Role names stripped", ChatSessionStripRoleName.Run },
@@ -19,8 +20,8 @@ public class ExampleRunner
         { "Executor: Stateless mode chat", StatelessModeExecute.Run },
         { "Save and Load: chat session", SaveAndLoadSession.Run },
         { "Save and Load: state of model and executor", LoadAndSaveState.Run },
-        { "LLama Model: Get embeddings", () => Task.Run(GetEmbeddings.Run) },
-        { "LLama Model: Quantize", () => Task.Run(QuantizeModel.Run) },
+        { "LLama Model: Get embeddings", GetEmbeddings.Run },
+        { "LLama Model: Quantize", QuantizeModel.Run },
         { "Grammar: Constrain response to json format", GrammarJsonResponse.Run },
         { "Kernel Memory: Document Q&A", KernelMemory.Run },
         { "Kernel Memory: Save and Load", KernelMemorySaveAndLoad.Run },
@@ -31,10 +32,10 @@ public class ExampleRunner
         { "Batched Executor: Save/Load", BatchedExecutorSaveAndLoad.Run },
         { "Batched Executor: Fork", BatchedExecutorFork.Run },
         { "Batched Executor: Rewind", BatchedExecutorRewind.Run },
-        { "Batched Executor: Guidance", BatchedExecutorGuidance.Run },
         { "Batched Executor: LLava", BatchedExecutorLLava.Run },
         { "Batched Executor: BoolQ Benchmark", BatchedExecutorBoolQ.Run },
         { "Batched Executor: Beam Search", BatchedExecutorBeamSearch.Run },
+        { "Custom Sampling Pipeline", CustomSampler.Run },
         { "Speech Chat: Integration with Whisper.net", SpeechChat.Run },
         { "Exit", () => { Environment.Exit(0); return Task.CompletedTask; } }
     };

@@ -1,23 +1,29 @@
 import { Button, Dialog, Typography } from '@neo4j-ndl/react';
 import { CustomFile } from '../../../types';
 import LargeFilesAlert from './LargeFilesAlert';
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { useFileContext } from '../../../context/UsersFiles';
+import ExpiredFilesAlert from '../ExpirationModal/ExpiredFilesAlert';
+import { isExpired } from '../../../utils/Utils';
 
-export default function ConfirmationDialog({
+function ConfirmationDialog({
   largeFiles,
   open,
   onClose,
   loading,
   extractHandler,
+  selectedRows,
+  isLargeDocumentAlert = true,
 }: {
   largeFiles: CustomFile[];
   open: boolean;
   onClose: () => void;
   loading: boolean;
-  extractHandler: (allowLargeFiles: boolean, selectedFilesFromAllfiles: CustomFile[]) => void;
+  extractHandler: (selectedFilesFromAllfiles: CustomFile[]) => void;
+  selectedRows: CustomFile[];
+  isLargeDocumentAlert?: boolean;
 }) {
-  const { setSelectedRows, filesData, setRowSelection, selectedRows } = useFileContext();
+  const { setSelectedRows, filesData, setRowSelection } = useFileContext();
   const [checked, setChecked] = useState<string[]>([...largeFiles.map((f) => f.id)]);
   const handleToggle = (ischecked: boolean, id: string) => {
     const newChecked = [...checked];
@@ -25,7 +31,7 @@ export default function ConfirmationDialog({
       const file = filesData.find((f) => f.id === id);
       newChecked.push(id);
       setSelectedRows((prev) => {
-        const fileindex = prev.findIndex((f) => JSON.parse(f).id === id);
+        const fileindex = prev.findIndex((f) => f === id);
         if (fileindex == -1) {
           return [...prev, JSON.stringify(file)];
         }
@@ -53,7 +59,7 @@ export default function ConfirmationDialog({
         return copiedobj;
       });
       setSelectedRows((prev) => {
-        const filteredrows = prev.filter((f) => JSON.parse(f).id != id);
+        const filteredrows = prev.filter((f) => f != id);
         return filteredrows;
       });
     }
@@ -68,40 +74,47 @@ export default function ConfirmationDialog({
   return (
     <Dialog
       size='medium'
-      open={open}
-      aria-labelledby='form-dialog-title'
+      isOpen={open}
       onClose={() => {
         setChecked([]);
         onClose();
-        extractHandler(false, []);
+      }}
+      htmlAttributes={{
+        'aria-labelledby': 'form-dialog-title',
       }}
     >
       <Dialog.Content className='n-flex n-flex-col n-gap-token-4'>
         {largeFiles.length === 0 && loading ? (
           <Typography variant='subheading-large'>Files are under processing</Typography>
+        ) : isLargeDocumentAlert ? (
+          <LargeFilesAlert handleToggle={handleToggle} Files={largeFiles} checked={checked}></LargeFilesAlert>
         ) : (
-          <LargeFilesAlert handleToggle={handleToggle} largeFiles={largeFiles} checked={checked}></LargeFilesAlert>
+          <ExpiredFilesAlert checked={checked} handleToggle={handleToggle} Files={largeFiles} />
         )}
       </Dialog.Content>
       <Dialog.Actions className='!mt-3'>
         <Button
           onClick={() => {
             if (selectedRows.length) {
-              extractHandler(true, []);
+              extractHandler(selectedRows);
             } else {
               const tobeProcessFiles: CustomFile[] = [];
-              checked.forEach((id: string) => {
+              for (let index = 0; index < checked.length; index++) {
+                const id = checked[index];
                 const file = filesData.find((f) => f.id === id);
                 if (file) {
                   tobeProcessFiles.push(file);
                 }
-              });
-              extractHandler(true, tobeProcessFiles);
+              }
+              extractHandler(tobeProcessFiles);
             }
             setChecked([]);
             onClose();
           }}
           size='large'
+          isDisabled={largeFiles.some(
+            (f) => f.createdAt != undefined && checked.includes(f.id) && isExpired(f?.createdAt as Date)
+          )}
         >
           Continue
         </Button>
@@ -109,3 +122,4 @@ export default function ConfirmationDialog({
     </Dialog>
   );
 }
+export default memo(ConfirmationDialog);

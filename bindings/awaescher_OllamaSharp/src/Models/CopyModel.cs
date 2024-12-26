@@ -3,9 +3,10 @@ using System.Text.Json.Serialization;
 namespace OllamaSharp.Models;
 
 /// <summary>
-/// https://github.com/jmorganca/ollama/blob/main/docs/api.md#copy-a-model
+/// Copy a model. Creates a model with another name from an existing model.
+/// <see href="https://ollama.ai/docs/api/#copy-a-model">Ollama API docs</see>
 /// </summary>
-public class CopyModelRequest
+public class CopyModelRequest : OllamaRequest
 {
 	/// <summary>
 	/// The source model name

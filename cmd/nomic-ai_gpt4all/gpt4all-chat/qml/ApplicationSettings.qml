@@ -10,7 +10,7 @@ import network
 import llm
 
 MySettingsTab {
-    onRestoreDefaultsClicked: {
+    onRestoreDefaults: {
         MySettings.restoreApplicationDefaults();
     }
     title: qsTr("Application")
@@ -32,15 +32,15 @@ MySettingsTab {
         anchors.centerIn: parent
         modal: false
         padding: 20
+        width: 40 + 400 * theme.fontScale
         Text {
+            anchors.fill: parent
             horizontalAlignment: Text.AlignJustify
-            text: qsTr("ERROR: Update system could not find the MaintenanceTool used<br>
-                   to check for updates!<br><br>
-                   Did you install this application using the online installer? If so,<br>
-                   the MaintenanceTool executable should be located one directory<br>
-                   above where this application resides on your filesystem.<br><br>
-                   If you can't start it manually, then I'm afraid you'll have to<br>
-                   reinstall.")
+            text: qsTr("ERROR: Update system could not find the MaintenanceTool used to check for updates!<br/><br/>"
+                  + "Did you install this application using the online installer? If so, the MaintenanceTool "
+                  + "executable should be located one directory above where this application resides on your "
+                  + "filesystem.<br/><br/>If you can't start it manually, then I'm afraid you'll have to reinstall.")
+            wrapMode: Text.WordWrap
             color: theme.textErrorColor
             font.pixelSize: theme.fontSizeLarge
             Accessible.role: Accessible.Dialog
@@ -108,7 +108,11 @@ MySettingsTab {
             Layout.fillWidth: false
             Layout.alignment: Qt.AlignRight
             // NOTE: indices match values of ChatTheme enum, keep them in sync
-            model: [qsTr("Light"), qsTr("Dark"), qsTr("LegacyDark")]
+            model: ListModel {
+                ListElement { name: qsTr("Light") }
+                ListElement { name: qsTr("Dark") }
+                ListElement { name: qsTr("LegacyDark") }
+            }
             Accessible.name: themeLabel.text
             Accessible.description: themeLabel.helpText
             function updateModel() {
@@ -143,7 +147,11 @@ MySettingsTab {
             Layout.fillWidth: false
             Layout.alignment: Qt.AlignRight
             // NOTE: indices match values of FontSize enum, keep them in sync
-            model: [qsTr("Small"), qsTr("Medium"), qsTr("Large")]
+            model: ListModel {
+                ListElement { name: qsTr("Small") }
+                ListElement { name: qsTr("Medium") }
+                ListElement { name: qsTr("Large") }
+            }
             Accessible.name: fontLabel.text
             Accessible.description: fontLabel.helpText
             function updateModel() {
@@ -314,6 +322,12 @@ MySettingsTab {
                 }
             }
             Connections {
+                target: MySettings
+                function onLanguageAndLocaleChanged() {
+                    defaultModelBox.rebuildModel()
+                }
+            }
+            Connections {
                 target: ModelList
                 function onSelectableModelListChanged() {
                     defaultModelBox.rebuildModel()
@@ -335,7 +349,11 @@ MySettingsTab {
             Layout.maximumWidth: 400
             Layout.alignment: Qt.AlignRight
             // NOTE: indices match values of SuggestionMode enum, keep them in sync
-            model: [ qsTr("When chatting with LocalDocs"), qsTr("Whenever possible"), qsTr("Never") ]
+            model: ListModel {
+                ListElement { name: qsTr("When chatting with LocalDocs") }
+                ListElement { name: qsTr("Whenever possible") }
+                ListElement { name: qsTr("Never") }
+            }
             Accessible.name: suggestionModeLabel.text
             Accessible.description: suggestionModeLabel.helpText
             onActivated: {
@@ -376,11 +394,14 @@ MySettingsTab {
                     }
                 }
             }
+            MyFolderDialog {
+                id: folderDialog
+            }
             MySettingsButton {
                 text: qsTr("Browse")
                 Accessible.description: qsTr("Choose where to save model files")
                 onClicked: {
-                    openFolderDialog("file://" + MySettings.modelPath, function(selectedFolder) {
+                    folderDialog.openFolderDialog("file://" + MySettings.modelPath, function(selectedFolder) {
                         MySettings.modelPath = selectedFolder
                     })
                 }
@@ -466,32 +487,32 @@ MySettingsTab {
             Accessible.description: ToolTip.text
         }
         MySettingsLabel {
-            id: saveChatsContextLabel
-            text: qsTr("Save Chat Context")
-            helpText: qsTr("Save the chat model's state to disk for faster loading. WARNING: Uses ~2GB per chat.")
-            Layout.row: 12
+            id: trayLabel
+            text: qsTr("Enable System Tray")
+            helpText: qsTr("The application will minimize to the system tray when the window is closed.")
+            Layout.row: 13
             Layout.column: 0
         }
         MyCheckBox {
-            id: saveChatsContextBox
-            Layout.row: 12
+            id: trayBox
+            Layout.row: 13
             Layout.column: 2
             Layout.alignment: Qt.AlignRight
-            checked: MySettings.saveChatsContext
+            checked: MySettings.systemTray
             onClicked: {
-                MySettings.saveChatsContext = !MySettings.saveChatsContext
+                MySettings.systemTray = !MySettings.systemTray
             }
         }
         MySettingsLabel {
             id: serverChatLabel
-            text: qsTr("Enable Local Server")
+            text: qsTr("Enable Local API Server")
             helpText: qsTr("Expose an OpenAI-Compatible server to localhost. WARNING: Results in increased resource usage.")
-            Layout.row: 13
+            Layout.row: 14
             Layout.column: 0
         }
         MyCheckBox {
             id: serverChatBox
-            Layout.row: 13
+            Layout.row: 14
             Layout.column: 2
             Layout.alignment: Qt.AlignRight
             checked: MySettings.serverChat
@@ -503,7 +524,7 @@ MySettingsTab {
             id: serverPortLabel
             text: qsTr("API Server Port")
             helpText: qsTr("The port to use for the local server. Requires restart.")
-            Layout.row: 14
+            Layout.row: 15
             Layout.column: 0
         }
         MyTextField {
@@ -511,7 +532,7 @@ MySettingsTab {
             text: MySettings.networkPort
             color: theme.textColor
             font.pixelSize: theme.fontSizeLarge
-            Layout.row: 14
+            Layout.row: 15
             Layout.column: 2
             Layout.minimumWidth: 200
             Layout.maximumWidth: 200
@@ -556,12 +577,12 @@ MySettingsTab {
             id: updatesLabel
             text: qsTr("Check For Updates")
             helpText: qsTr("Manually check for an update to GPT4All.");
-            Layout.row: 15
+            Layout.row: 16
             Layout.column: 0
         }
 
         MySettingsButton {
-            Layout.row: 15
+            Layout.row: 16
             Layout.column: 2
             Layout.alignment: Qt.AlignRight
             text: qsTr("Updates");
@@ -572,7 +593,7 @@ MySettingsTab {
         }
 
         Rectangle {
-            Layout.row: 16
+            Layout.row: 17
             Layout.column: 0
             Layout.columnSpan: 3
             Layout.fillWidth: true

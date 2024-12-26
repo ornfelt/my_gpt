@@ -1,15 +1,12 @@
-using LLama.Exceptions;
 using LLama.Native;
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Diagnostics;
 using System.Text;
 using System.IO;
 using System.IO.MemoryMappedFiles;
-using LLama.Common;
 using System.Threading.Tasks;
 using LLama.Abstractions;
-using LLama.Sampling;
 using Microsoft.Extensions.Logging;
 using System.Threading;
 
@@ -57,7 +54,7 @@ namespace LLama
         /// <summary>
         /// Get or set the number of threads to use for generation
         /// </summary>
-        public uint GenerationThreads
+        public int GenerationThreads
         {
             get => NativeHandle.GenerationThreads;
             set => NativeHandle.GenerationThreads = value;
@@ -66,7 +63,7 @@ namespace LLama
         /// <summary>
         /// Get or set the number of threads to use for batch processing
         /// </summary>
-        public uint BatchThreads
+        public int BatchThreads
         {
             get => NativeHandle.BatchThreads;
             set => NativeHandle.BatchThreads = value;
@@ -82,8 +79,6 @@ namespace LLama
         /// </summary>
         public SafeLlamaModelHandle.ModelTokens Tokens { get; }
         
-        private LLamaTokenData[]? _samplingBuffer;
-
         /// <summary>
         /// Create a new LLamaContext for the given LLamaWeights
         /// </summary>
@@ -105,15 +100,6 @@ namespace LLama
             NativeHandle = SafeLLamaContextHandle.Create(model.NativeHandle, lparams);
 
             Tokens = model.Tokens;
-        }
-
-        /// <summary>
-        /// Set the seed for the RNG
-        /// </summary>
-        /// <param name="seed"></param>
-        public void SetSeed(uint seed)
-        {
-            NativeHandle.SetSeed(seed);
         }
 
         /// <summary>
@@ -155,13 +141,13 @@ namespace LLama
             if (File.Exists(filename))
                 File.Delete(filename);
 
-            // Estimate size of state to write to disk, this is always equal to or greater than the actual size
-            var estimatedStateSize = checked((long)NativeHandle.GetStateSize());
+            // Get the exact size of the state
+            var stateSize = NativeHandle.GetStateSize();
 
             // Map the file and write the bytes directly to it. This saves copying the bytes into a C# array
-            long writtenBytes;
-            using (var file = MemoryMappedFile.CreateFromFile(filename, FileMode.Create, null, estimatedStateSize))
-            using (var view = file.CreateViewAccessor(0, estimatedStateSize))
+            nuint writtenBytes;
+            using (var file = MemoryMappedFile.CreateFromFile(filename, FileMode.Create, null, checked((long)stateSize)))
+            using (var view = file.CreateViewAccessor(0, checked((long)stateSize)))
             {
                 unsafe
                 {
@@ -169,7 +155,7 @@ namespace LLama
                     view.SafeMemoryMappedViewHandle.AcquirePointer(ref ptr);
                     try
                     {
-                        writtenBytes = (long)NativeHandle.GetState(ptr, (ulong)estimatedStateSize);
+                        writtenBytes = NativeHandle.GetState(ptr, stateSize);
                     }
                     finally
                     {
@@ -178,9 +164,7 @@ namespace LLama
                 }
             }
 
-            // Truncate the file to the actual size of data that was written
-            using (var fileStream = new FileStream(filename, FileMode.Open))
-                fileStream.SetLength(writtenBytes);
+            Debug.Assert(stateSize == writtenBytes, $"Expected to write {stateSize} bytes, but actually wrote {writtenBytes}");
         }
 
         /// <summary>
@@ -194,13 +178,13 @@ namespace LLama
             if (File.Exists(filename))
                 File.Delete(filename);
 
-            // Estimate size of state to write to disk, this is always equal to or greater than the actual size
-            var estimatedStateSize = checked((long)NativeHandle.GetStateSize(sequence));
+            // Get the exact size of the state
+            var stateSize = NativeHandle.GetStateSize(sequence);
 
             // Map the file and write the bytes directly to it. This saves copying the bytes into a C# array
-            long writtenBytes;
-            using (var file = MemoryMappedFile.CreateFromFile(filename, FileMode.Create, null, estimatedStateSize))
-            using (var view = file.CreateViewAccessor(0, estimatedStateSize))
+            nuint writtenBytes;
+            using (var file = MemoryMappedFile.CreateFromFile(filename, FileMode.Create, null, checked((long)stateSize)))
+            using (var view = file.CreateViewAccessor(0, checked((long)stateSize)))
             {
                 unsafe
                 {
@@ -208,7 +192,7 @@ namespace LLama
                     view.SafeMemoryMappedViewHandle.AcquirePointer(ref ptr);
                     try
                     {
-                        writtenBytes = (long)NativeHandle.GetState(ptr, (ulong)estimatedStateSize, sequence);
+                        writtenBytes = NativeHandle.GetState(ptr, stateSize, sequence);
                     }
                     finally
                     {
@@ -217,9 +201,7 @@ namespace LLama
                 }
             }
 
-            // Truncate the file to the actual size of data that was written
-            using (var fileStream = new FileStream(filename, FileMode.Open))
-                fileStream.SetLength(writtenBytes);
+            Debug.Assert(stateSize == writtenBytes, $"Expected to write {stateSize} bytes, but actually wrote {writtenBytes}");
         }
 
         /// <summary>
@@ -235,15 +217,14 @@ namespace LLama
             var memory = Marshal.AllocHGlobal((nint)stateSize);
             try
             {
-                // Copy the state data into memory, discover the actual size required
-                ulong actualSize;
+                // Copy the state data into memory
+                nuint actualSize;
                 unsafe
                 {
                     actualSize = NativeHandle.GetState((byte*)memory, stateSize);
                 }
 
-                // Shrink to size
-                memory = Marshal.ReAllocHGlobal(memory, (nint)actualSize);
+                Debug.Assert(actualSize == stateSize);
 
                 // Wrap memory in a "state"
                 var state = new State(memory, actualSize);
@@ -274,14 +255,13 @@ namespace LLama
             try
             {
                 // Copy the state data into memory, discover the actual size required
-                ulong actualSize;
+                nuint actualSize;
                 unsafe
                 {
                     actualSize = NativeHandle.GetState((byte*)memory, stateSize, sequence);
                 }
 
-                // Shrink to size
-                memory = Marshal.ReAllocHGlobal(memory, (nint)actualSize);
+                Debug.Assert(actualSize == stateSize);
 
                 // Wrap memory in a "state"
                 var state = new SequenceState(memory, actualSize);
@@ -314,7 +294,7 @@ namespace LLama
                     view.SafeMemoryMappedViewHandle.AcquirePointer(ref ptr);
                     try
                     {
-                        NativeHandle.SetState(ptr);
+                        NativeHandle.SetState(ptr, (nuint)view.SafeMemoryMappedViewHandle.ByteLength);
                     }
                     finally
                     {
@@ -341,7 +321,7 @@ namespace LLama
                     view.SafeMemoryMappedViewHandle.AcquirePointer(ref ptr);
                     try
                     {
-                        NativeHandle.SetState(ptr, sequence);
+                        NativeHandle.SetState(ptr, (nuint)view.SafeMemoryMappedViewHandle.ByteLength, sequence);
                     }
                     finally
                     {
@@ -355,12 +335,11 @@ namespace LLama
         /// Load the state from memory.
         /// </summary>
         /// <param name="state"></param>
-        /// <exception cref="RuntimeError"></exception>
         public void LoadState(State state)
         {
             unsafe
             {
-                NativeHandle.SetState((byte*)state.DangerousGetHandle());
+                NativeHandle.SetState((byte*)state.DangerousGetHandle(), state.Size);
             }
         }
 
@@ -369,151 +348,14 @@ namespace LLama
         /// </summary>
         /// <param name="state"></param>
         /// <param name="sequence"></param>
-        /// <exception cref="RuntimeError"></exception>
         public void LoadState(SequenceState state, LLamaSeqId sequence)
         {
             unsafe
             {
-                NativeHandle.SetState((byte*)state.DangerousGetHandle(), sequence);
+                NativeHandle.SetState((byte*)state.DangerousGetHandle(), state.Size, sequence);
             }
         }
         #endregion
-
-        /// <summary>
-        /// Sample a single token from this context, using the given sampling pipeline
-        /// </summary>
-        /// <param name="pipeline">The pipeline to use to process the logits and to select a token</param>
-        /// <param name="lastTokens">The tokens recently returned from the model</param>
-        /// <returns>The selected token</returns>
-        public LLamaToken Sample(ISamplingPipeline pipeline, ReadOnlySpan<LLamaToken> lastTokens)
-        {
-            var token = pipeline.Sample(NativeHandle, NativeHandle.GetLogits(), lastTokens);
-            pipeline.Accept(NativeHandle, token);
-            return token;
-        }
-
-        /// <summary>
-        /// Perform the sampling. Please don't use it unless you fully know what it does.
-        /// </summary>
-        /// <param name="candidates"></param>
-        /// <param name="mirostat_mu"></param>
-        /// <param name="temperature"></param>
-        /// <param name="mirostat"></param>
-        /// <param name="mirostatTau"></param>
-        /// <param name="mirostatEta"></param>
-        /// <param name="topK"></param>
-        /// <param name="topP"></param>
-        /// <param name="tfsZ"></param>
-        /// <param name="typicalP"></param>
-        /// <param name="grammar"></param>
-        /// <param name="minP"></param>
-        /// <returns></returns>
-        public LLamaToken Sample(LLamaTokenDataArray candidates, ref float? mirostat_mu, float temperature, MirostatType mirostat, 
-                                 float mirostatTau, float mirostatEta, int topK, float topP, float tfsZ, float typicalP,
-                                 SafeLLamaGrammarHandle? grammar, float minP)
-        {
-            LLamaToken id;
-
-            if (grammar != null)
-            {
-                candidates.ApplyGrammar(NativeHandle, grammar);
-            }
-
-            if (temperature <= 0)
-            {
-                // Greedy sampling
-                id = candidates.SampleTokenGreedy(NativeHandle);
-            }
-            else
-            {
-                var mu = mirostat_mu ?? (2 * mirostatTau);
-                {
-                    if (mirostat == MirostatType.Mirostat)
-                    {
-                        const int mirostat_m = 100;
-                        candidates.Temperature(NativeHandle, temperature);
-                        id = candidates.SampleTokenMirostat(NativeHandle, mirostatTau, mirostatEta, mirostat_m, ref mu);
-                    }
-                    else if (mirostat == MirostatType.Mirostat2)
-                    {
-                        candidates.Temperature(NativeHandle, temperature);
-                        id = candidates.SampleTokenMirostat2(NativeHandle, mirostatTau, mirostatEta, ref mu);
-                    }
-                    else
-                    {
-                        candidates.TopK(NativeHandle, topK);
-                        candidates.TailFree(NativeHandle, tfsZ);
-                        candidates.LocallyTypical(NativeHandle, typicalP);
-                        candidates.TopP(NativeHandle, topP);
-                        candidates.MinP(NativeHandle, minP);
-                        candidates.Temperature(NativeHandle, temperature);
-                        id = candidates.SampleToken(NativeHandle);
-                    }
-                }
-                mirostat_mu = mu;
-            }
-
-            grammar?.AcceptToken(NativeHandle, id);
-
-            return id;
-        }
-
-        /// <summary>
-        /// Apply the penalty for the tokens. Please don't use it unless you fully know what it does.
-        /// </summary>
-        /// <param name="logits_i"></param>
-        /// <param name="lastTokens"></param>
-        /// <param name="logitBias"></param>
-        /// <param name="repeatLastTokensCount"></param>
-        /// <param name="repeatPenalty"></param>
-        /// <param name="alphaFrequency"></param>
-        /// <param name="alphaPresence"></param>
-        /// <param name="penalizeNL"></param>
-        /// <returns></returns>
-        public LLamaTokenDataArray ApplyPenalty(int logits_i, IEnumerable<LLamaToken> lastTokens, Dictionary<LLamaToken, float>? logitBias = null, 
-                                                int repeatLastTokensCount = 64, float repeatPenalty = 1.1f, float alphaFrequency = .0f, float alphaPresence = .0f, 
-                                                bool penalizeNL = true)
-        {
-            var logits = NativeHandle.GetLogitsIth(logits_i);
-
-            // Apply params.logit_bias map
-            if (logitBias is not null)
-            {
-                foreach (var (key, value) in logitBias)
-                    logits[(int)key] += value;
-            }
-
-            // Save the newline logit value
-            var nl_token = NativeHandle.ModelHandle.Tokens.Newline;
-            var nl_logit = logits[(int?)nl_token ?? 0];
-
-            // Convert logits into token candidates
-            if (_samplingBuffer == null || _samplingBuffer.Length < logits.Length)
-                _samplingBuffer = new LLamaTokenData[logits.Length];
-            var candidates_p = LLamaTokenDataArray.Create(logits, _samplingBuffer);
-
-            // Extract most recently returned tokens
-            var last_n_repeat = Math.Min((int)ContextSize, repeatLastTokensCount);
-            var last_n_array = lastTokens.TakeLast(last_n_repeat).ToArray();
-
-            // Apply penalties to candidates
-            candidates_p.RepetitionPenalty(NativeHandle, last_n_array, repeatPenalty, alphaFrequency, alphaPresence);
-
-            // Restore newline token logit value if necessary
-            if (!penalizeNL && nl_token.HasValue)
-            {
-                var candidatesSpan = candidates_p.Data.Span;
-                for (var i = 0; i < candidates_p.Data.Length; i++)
-                {
-                    ref var item = ref candidatesSpan[i];
-                    if (item.id == nl_token)
-                        item.logit = nl_logit;
-                }
-                candidates_p.Sorted = false;
-            }
-
-            return candidates_p;
-        }
 
         /// <summary>
         /// Gets whether or not the Bos token should be added.
@@ -523,10 +365,33 @@ namespace LLama
         public bool ShouldAddBosToken()
         {
             var addBos = NativeApi.llama_add_bos_token(NativeHandle.ModelHandle);
-            return addBos != -1 ? Convert.ToBoolean(addBos) : NativeHandle.LLamaVocabType == LLamaVocabType.SentencePiece;
+            //return addBos != -1 ? Convert.ToBoolean(addBos) : NativeHandle.LLamaVocabType == LLamaVocabType.SentencePiece;
+            return addBos;
         }
 
         #region eval overloads
+        /// <summary>
+        /// </summary>
+        /// <param name="batch"></param>
+        public EncodeResult Encode(LLamaBatch batch)
+        {
+            if (batch.TokenCount == 0)
+                return 0;
+            if (batch.TokenCount > BatchSize)
+                throw new ArgumentException("Input contains more tokens than configured batch size", nameof(batch));
+
+            return (EncodeResult)NativeHandle.Encode(batch);
+        }
+
+        /// <summary>
+        /// </summary>
+        /// <param name="batch"></param>
+        /// <param name="cancellationToken"></param>
+        public Task<EncodeResult> EncodeAsync(LLamaBatch batch, CancellationToken cancellationToken = default)
+        {
+            return Task.Run(() => Encode(batch), cancellationToken);
+        }
+
         /// <summary>
         /// </summary>
         /// <param name="batch"></param>
@@ -601,16 +466,15 @@ namespace LLama
         public class State
             : SafeLLamaHandleBase
         {
-            private readonly ulong _size;
             /// <summary>
             /// Get the size in bytes of this state object
             /// </summary>
-            public ulong Size => _size;
+            public nuint Size { get; }
 
-            internal State(IntPtr memory, ulong size)
+            internal State(IntPtr memory, nuint size)
                 : base(memory, true)
             {
-                _size = size;
+                Size = size;
             }
 
             /// <inheritdoc />
@@ -629,7 +493,8 @@ namespace LLama
                 UnmanagedMemoryStream from;
                 unsafe
                 {
-                    from = new UnmanagedMemoryStream((byte*)handle.ToPointer(), checked((long)Size));
+                    var length = (long)Size;
+                    from = new UnmanagedMemoryStream((byte*)handle.ToPointer(), length, length, FileAccess.Read);
                 }
                 await from.CopyToAsync(stream);
             }
@@ -643,7 +508,8 @@ namespace LLama
                 UnmanagedMemoryStream from;
                 unsafe
                 {
-                    from = new UnmanagedMemoryStream((byte*)handle.ToPointer(), checked((long)Size));
+                    var length = (long)Size;
+                    from = new UnmanagedMemoryStream((byte*)handle.ToPointer(), length, length, FileAccess.Read);
                 }
                 from.CopyTo(stream);
             }
@@ -656,12 +522,13 @@ namespace LLama
             public static async Task<State> LoadAsync(Stream stream)
             {
                 var memory = Marshal.AllocHGlobal((nint)stream.Length);
-                var state = new State(memory, checked((ulong)stream.Length));
+                var state = new State(memory, (nuint)stream.Length);
 
                 UnmanagedMemoryStream dest;
                 unsafe
                 {
-                    dest = new UnmanagedMemoryStream((byte*)memory.ToPointer(), stream.Length);
+                    var length = stream.Length;
+                    dest = new UnmanagedMemoryStream((byte*)memory.ToPointer(), length, length, FileAccess.Write);
                 }
                 await stream.CopyToAsync(dest);
 
@@ -676,13 +543,15 @@ namespace LLama
             public static State Load(Stream stream)
             {
                 var memory = Marshal.AllocHGlobal((nint)stream.Length);
-                var state = new State(memory, checked((ulong)stream.Length));
+                var state = new State(memory, (nuint)stream.Length);
 
+                UnmanagedMemoryStream dest;
                 unsafe
                 {
-                    var dest = new UnmanagedMemoryStream((byte*)memory.ToPointer(), stream.Length);
-                    stream.CopyTo(dest);
+                    var length = stream.Length;
+                    dest = new UnmanagedMemoryStream((byte*)memory.ToPointer(), length, length, FileAccess.Write);
                 }
+                stream.CopyTo(dest);
 
                 return state;
             }
@@ -694,13 +563,13 @@ namespace LLama
         public class SequenceState
             : SafeLLamaHandleBase
         {
-            private readonly ulong _size;
+            private readonly nuint _size;
             /// <summary>
             /// Get the size in bytes of this state object
             /// </summary>
-            public ulong Size => _size;
+            public nuint Size => _size;
 
-            internal SequenceState(IntPtr memory, ulong size)
+            internal SequenceState(IntPtr memory, nuint size)
                 : base(memory, true)
             {
                 _size = size;

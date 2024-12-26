@@ -5,7 +5,6 @@ project(jllama CXX)
 include(FetchContent)
 
 set(BUILD_SHARED_LIBS ON)
-set(LLAMA_STATIC OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 option(LLAMA_VERBOSE	"llama: verbose output"		OFF)
@@ -24,7 +23,7 @@ FetchContent_MakeAvailable(json)
 FetchContent_Declare(
 	llama.cpp
 	GIT_REPOSITORY https://github.com/ggerganov/llama.cpp.git
-	GIT_TAG        b3008
+	GIT_TAG        b3534
 )
 FetchContent_MakeAvailable(llama.cpp)
 
@@ -58,8 +57,13 @@ if(NOT OS_ARCH)
     message(FATAL_ERROR "Could not determine CPU architecture")
 endif()
 
-set(JLLAMA_DIR ${CMAKE_SOURCE_DIR}/src/main/resources/de/kherud/llama/${OS_NAME}/${OS_ARCH})
-message(STATUS "Installing files to ${JLLAMA_DIR}")
+if(GGML_CUDA)
+    set(JLLAMA_DIR ${CMAKE_SOURCE_DIR}/src/main/resources_linux_cuda/de/kherud/llama/${OS_NAME}/${OS_ARCH})
+    message(STATUS "GPU (CUDA Linux) build - Installing files to ${JLLAMA_DIR}")
+else()
+    set(JLLAMA_DIR ${CMAKE_SOURCE_DIR}/src/main/resources/de/kherud/llama/${OS_NAME}/${OS_ARCH})
+    message(STATUS "CPU build - Installing files to ${JLLAMA_DIR}")
+endif()
 
 # include jni.h and jni_md.h
 if(NOT DEFINED JNI_INCLUDE_DIRS)
@@ -98,11 +102,12 @@ target_compile_definitions(jllama PRIVATE
 )
 
 if(OS_NAME STREQUAL "Windows")
-	set_target_properties(jllama llama PROPERTIES
+	set_target_properties(jllama llama ggml PROPERTIES
+	  RUNTIME_OUTPUT_DIRECTORY_DEBUG ${JLLAMA_DIR}
 	  RUNTIME_OUTPUT_DIRECTORY_RELEASE ${JLLAMA_DIR}
 	)
 else()
-	set_target_properties(jllama llama PROPERTIES
+	set_target_properties(jllama llama ggml PROPERTIES
 	  LIBRARY_OUTPUT_DIRECTORY ${JLLAMA_DIR}
 	)
 endif()

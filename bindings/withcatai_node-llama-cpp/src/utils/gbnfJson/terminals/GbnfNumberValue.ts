@@ -1,4 +1,5 @@
 import {GbnfTerminal} from "../GbnfTerminal.js";
+import {GbnfGrammarGenerator} from "../GbnfGrammarGenerator.js";
 
 
 export class GbnfNumberValue extends GbnfTerminal {
@@ -9,11 +10,19 @@ export class GbnfNumberValue extends GbnfTerminal {
         this.value = value;
     }
 
-    override getGrammar(): string {
+    public override getGrammar(): string {
         return '"' + JSON.stringify(this.value) + '"';
     }
 
-    public override resolve(): string {
-        return this.getGrammar();
+    public override resolve(grammarGenerator: GbnfGrammarGenerator): string {
+        const grammar = this.getGrammar();
+        if (grammar.length <= grammarGenerator.getProposedLiteralValueRuleNameLength())
+            return grammar;
+
+        return super.resolve(grammarGenerator);
+    }
+
+    protected override generateRuleName(grammarGenerator: GbnfGrammarGenerator): string {
+        return grammarGenerator.generateRuleNameForLiteralValue(this.value);
     }
 }

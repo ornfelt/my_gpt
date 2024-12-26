@@ -1,4 +1,4 @@
-﻿using LLama.Common;
+using LLama.Common;
 using LLama.Native;
 
 namespace LLama.Unittest
@@ -13,7 +13,7 @@ namespace LLama.Unittest
         {
             var @params = new ModelParams(Constants.GenerativeModelPath)
             {
-                ContextSize = 768,
+                ContextSize = 128,
                 GpuLayerCount = Constants.CIGpuLayerCount,
             };
             _weights = LLamaWeights.LoadFromFile(@params);
@@ -29,9 +29,9 @@ namespace LLama.Unittest
         [Fact]
         public void CheckProperties()
         {
-            Assert.Equal(768u, _context.ContextSize);
-            Assert.Equal(4096, _context.EmbeddingSize);
-            Assert.Equal(32000, _context.VocabCount);
+            Assert.Equal(128u, _context.ContextSize);
+            Assert.Equal(2048, _context.EmbeddingSize);
+            Assert.Equal(128256, _context.VocabCount);
         }
 
         [Fact]
@@ -39,7 +39,7 @@ namespace LLama.Unittest
         {
             var tokens = _context.Tokenize("The quick brown fox", true);
 
-            Assert.Equal(new LLamaToken[] { 1, 450, 4996, 17354, 1701, 29916 }, tokens);
+            Assert.Equal(new LLamaToken[] { 128000, 791, 4062, 14198, 39935 }, tokens);
         }
 
         [Fact]
@@ -47,7 +47,7 @@ namespace LLama.Unittest
         {
             var tokens = _context.Tokenize("\n", false, false);
 
-            Assert.Equal(new LLamaToken[] { 29871, 13 }, tokens);
+            Assert.Equal(new LLamaToken[] { 198 }, tokens);
         }
 
         [Fact]
@@ -78,7 +78,7 @@ namespace LLama.Unittest
         {
             var tokens = _context.Tokenize("The quick brown fox", false);
 
-            Assert.Equal(new LLamaToken[] { 450, 4996, 17354, 1701, 29916 }, tokens);
+            Assert.Equal(new LLamaToken[] { 791, 4062, 14198, 39935 }, tokens);
         }
 
         [Fact]
@@ -87,6 +87,36 @@ namespace LLama.Unittest
             var tokens = _context.Tokenize("", false);
 
             Assert.Equal(Array.Empty<LLamaToken>(), tokens);
+        }
+
+        [Fact]
+        public void SaveLoadState()
+        {
+            using var state1 = _context.GetState();
+
+            var stream = new MemoryStream();
+            state1.Save(stream);
+
+            stream.Position = 0;
+
+            using var state2 = LLamaContext.State.Load(stream);
+
+            Assert.Equal(state1.Size, state2.Size);
+        }
+
+        [Fact]
+        public async Task SaveLoadStateAsync()
+        {
+            using var state1 = _context.GetState();
+
+            var stream = new MemoryStream();
+            await state1.SaveAsync(stream);
+
+            stream.Position = 0;
+
+            using var state2 = await LLamaContext.State.LoadAsync(stream);
+
+            Assert.Equal(state1.Size, state2.Size);
         }
     }
 }

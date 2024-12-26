@@ -5,21 +5,22 @@ import {reservedRuleNames} from "./gbnfConsts.js";
 export class GbnfNumber extends GbnfTerminal {
     public readonly allowFractional: boolean;
 
-    public constructor({allowFractional = true}: { allowFractional: boolean }) {
+    public constructor({allowFractional = true}: {allowFractional: boolean}) {
         super();
         this.allowFractional = allowFractional;
     }
 
-    getGrammar(): string {
-        const numberGrammar = '("-"? ([0-9] | [1-9] [0-9]*))';
+    public getGrammar(): string {
+        const num = '"-"? ("0" | [1-9] [0-9]{0,15})';
+        const exponent = ' ([eE] [-+]? ("0" | [1-9] [0-9]{0,15}))?';
 
         if (this.allowFractional)
-            return numberGrammar + ' ("." [0-9]+)? ([eE] [-+]? [0-9]+)?';
+            return num + ' ("." [0-9]{1,16})?' + exponent;
 
-        return numberGrammar;
+        return num + exponent;
     }
 
-    override getRuleName(): string {
+    protected override getRuleName(): string {
         if (this.allowFractional)
             return reservedRuleNames.number.fractional;
 

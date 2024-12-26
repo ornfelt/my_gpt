@@ -5,6 +5,7 @@
     "instructions": "Instructions",
     "knowledgeBases": "Knowledge Bases",
     "chat": "Chat",
+    "realtime": "Realtime Chat",
     "settings": "Settings"
   },
   "colorMode": {
@@ -101,6 +102,8 @@
     "userName": "User Name",
     "password": "password",
     "apiKey": "API Key",
+    "apiKeyRequired": "API key is required to load models",
+    "baseURL": "Base URL",
     "endpoint": "Endpoint",
     "openAi": "OpenAI",
     "azureOpenAi": "Azure OpenAI",
@@ -124,7 +127,9 @@
     "modelNameExist": "Model name already exists",
     "modelNameSetting": "Custom model name",
     "modelNameTip": "Please enter model name",
-    "removeCustomService": "Delete current custom service"
+    "removeCustomService": "Delete current custom service",
+    "defaultPage": "Default Page",
+    "modelsEndpoint": "Models Endpoint"
   },
   "auth": {
     "signIn": "Sign In",

@@ -4,7 +4,7 @@
 #include "presets.hpp"
 
 
-static void convert_f16(const void * vx, const int ib, const int iqs, dfloat2 & v){
+static void convert_f16(const void * vx, const int64_t ib, const int iqs, dfloat2 & v){
     const sycl::half *x = (const sycl::half *)vx;
 
     // automatic half -> float type cast if dfloat == float
@@ -12,7 +12,7 @@ static void convert_f16(const void * vx, const int ib, const int iqs, dfloat2 & 
     v.y() = x[ib + iqs + 1];
 }
 
-static void convert_f32(const void * vx, const int ib, const int iqs, dfloat2 & v){
+static void convert_f32(const void * vx, const int64_t ib, const int iqs, dfloat2 & v){
     const float * x = (const float *) vx;
 
     // automatic half -> float type cast if dfloat == float
@@ -1011,7 +1011,7 @@ void ggml_sycl_op_dequantize_mul_mat_vec(
             break;
         default:
             printf("ggml_sycl_op_dequantize_mul_mat_vec unsupported GGML_TYPE %d\n", src0->type);
-            GGML_ASSERT(false);
+            GGML_ABORT("fatal error");
             break;
     }
 

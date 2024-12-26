@@ -64,6 +64,9 @@ QtObject {
     property color green800: Qt.hsla(123/360, 0.17, 0.24)
     property color green900: Qt.hsla(124/360, 0.17, 0.20)
     property color green950: Qt.hsla(125/360, 0.22, 0.10)
+    property color green300_sat: Qt.hsla(122/360, 0.24, 0.73)
+    property color green400_sat: Qt.hsla(122/360, 0.23, 0.58)
+    property color green450_sat: Qt.hsla(122/360, 0.23, 0.52)
 
     // yellow
     property color yellow0: Qt.hsla(47/360, 0.90, 0.99)
@@ -99,6 +102,7 @@ QtObject {
     property color purple200: Qt.hsla(279/360, 1.0, 0.91)
     property color purple300: Qt.hsla(279/360, 1.0, 0.84)
     property color purple400: Qt.hsla(279/360, 1.0, 0.73)
+    property color purple450: Qt.hsla(279/360, 1.0, 0.68)
     property color purple500: Qt.hsla(279/360, 1.0, 0.63)
     property color purple600: Qt.hsla(279/360, 1.0, 0.53)
     property color purple700: Qt.hsla(279/360, 1.0, 0.47)
@@ -174,6 +178,17 @@ QtObject {
                 return darkgray300
             default:
                 return gray100
+        }
+    }
+
+    property color attachmentBackground: {
+        switch (MySettings.chatTheme) {
+            case MySettingsEnums.ChatTheme.LegacyDark:
+                return blue900
+            case MySettingsEnums.ChatTheme.Dark:
+                return darkgray200
+            default:
+                return gray0
         }
     }
 
@@ -394,6 +409,39 @@ QtObject {
                 return buttonBackgroundHovered
             default:
                 return green200
+        }
+    }
+
+    property color mediumButtonBackground: {
+        switch (MySettings.chatTheme) {
+            case MySettingsEnums.ChatTheme.LegacyDark:
+                return purple400
+            case MySettingsEnums.ChatTheme.Dark:
+                return green400_sat
+            default:
+                return green400_sat
+        }
+    }
+
+    property color mediumButtonBackgroundHovered: {
+        switch (MySettings.chatTheme) {
+            case MySettingsEnums.ChatTheme.LegacyDark:
+                return purple450
+            case MySettingsEnums.ChatTheme.Dark:
+                return green450_sat
+            default:
+                return green300_sat
+        }
+    }
+
+    property color mediumButtonText: {
+        switch (MySettings.chatTheme) {
+            case MySettingsEnums.ChatTheme.LegacyDark:
+                return textColor
+            case MySettingsEnums.ChatTheme.Dark:
+                return textColor
+            default:
+                return white
         }
     }
 
@@ -911,16 +959,8 @@ QtObject {
         }
     }
 
-    property color textErrorColor: {
-        switch (MySettings.chatTheme) {
-            case MySettingsEnums.ChatTheme.LegacyDark:
-                return red400
-            case MySettingsEnums.ChatTheme.Dark:
-                return red400
-            default:
-                return red400
-        }
-    }
+    readonly property color textErrorColor:   red400
+    readonly property color textWarningColor: yellow400
 
     property color settingsTitleTextColor: {
         switch (MySettings.chatTheme) {
@@ -974,6 +1014,17 @@ QtObject {
                 return yellow25
             default:
                 return grayRed900
+        }
+    }
+
+    property color styledTextColorLighter: {
+        switch (MySettings.chatTheme) {
+            case MySettingsEnums.ChatTheme.LegacyDark:
+                return purple50
+            case MySettingsEnums.ChatTheme.Dark:
+                return yellow0
+            default:
+                return grayRed400
         }
     }
 
@@ -1216,5 +1267,6 @@ QtObject {
     property real fontSizeLarger:      14 * fontScale
     property real fontSizeLargest:     18 * fontScale
     property real fontSizeBannerSmall: 24 * fontScale**.8
-    property real fontSizeBanner:      48 * fontScale**.8
+    property real fontSizeBanner:      32 * fontScale**.8
+    property real fontSizeBannerLarge: 48 * fontScale**.8
 }

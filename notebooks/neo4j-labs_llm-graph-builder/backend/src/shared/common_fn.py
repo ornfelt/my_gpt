@@ -1,25 +1,15 @@
 import hashlib
 import logging
 from src.document_sources.youtube import create_youtube_url
-from langchain_community.embeddings.sentence_transformer import SentenceTransformerEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_google_vertexai import VertexAIEmbeddings
 from langchain_openai import OpenAIEmbeddings
-from langchain.docstore.document import Document
-from langchain_community.graphs import Neo4jGraph
+from langchain_neo4j import Neo4jGraph
 from langchain_community.graphs.graph_document import GraphDocument
 from typing import List
 import re
 import os
 from pathlib import Path
-from langchain_openai import ChatOpenAI
-from langchain_google_vertexai import ChatVertexAI
-from langchain_groq import ChatGroq
-from langchain_google_vertexai import HarmBlockThreshold, HarmCategory
-from langchain_experimental.graph_transformers.diffbot import DiffbotGraphTransformer
-# from neo4j.debug import watch
-
-# watch("neo4j")
-
 
 def check_url_source(source_type, yt_url:str=None, wiki_query:str=None):
     language=''
@@ -86,16 +76,36 @@ def load_embedding_model(embedding_model_name: str):
         dimension = 768
         logging.info(f"Embedding: Using Vertex AI Embeddings , Dimension:{dimension}")
     else:
-        embeddings = SentenceTransformerEmbeddings(
+        embeddings = HuggingFaceEmbeddings(
             model_name="all-MiniLM-L6-v2"#, cache_folder="/embedding_model"
         )
         dimension = 384
-        logging.info(f"Embedding: Using SentenceTransformer , Dimension:{dimension}")
+        logging.info(f"Embedding: Using Langchain HuggingFaceEmbeddings , Dimension:{dimension}")
     return embeddings, dimension
 
 def save_graphDocuments_in_neo4j(graph:Neo4jGraph, graph_document_list:List[GraphDocument]):
-  # graph.add_graph_documents(graph_document_list, baseEntityLabel=True)
-  graph.add_graph_documents(graph_document_list)
+  graph.add_graph_documents(graph_document_list, baseEntityLabel=True)
+  # graph.add_graph_documents(graph_document_list)
+  
+def handle_backticks_nodes_relationship_id_type(graph_document_list:List[GraphDocument]):
+  for graph_document in graph_document_list:
+    # Clean node id and types
+    cleaned_nodes = []
+    for node in graph_document.nodes:
+      if node.type.strip() and node.id.strip():
+        node.type = node.type.replace('`', '')
+        cleaned_nodes.append(node)
+    # Clean relationship id types and source/target node id and types
+    cleaned_relationships = []
+    for rel in graph_document.relationships:
+      if rel.type.strip() and rel.source.id.strip() and rel.source.type.strip() and rel.target.id.strip() and rel.target.type.strip():
+        rel.type = rel.type.replace('`', '')
+        rel.source.type = rel.source.type.replace('`', '')
+        rel.target.type = rel.target.type.replace('`', '')
+        cleaned_relationships.append(rel)
+    graph_document.relationships = cleaned_relationships
+    graph_document.nodes = cleaned_nodes
+  return graph_document_list
 
 def delete_uploaded_local_file(merged_file_path, file_name):
   file_path = Path(merged_file_path)

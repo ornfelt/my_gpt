@@ -5,7 +5,8 @@
     "instructions": "指令",
     "knowledgeBases": "知识库",
     "chat": "对话",
-    "settings": "设置"
+    "settings": "设置",
+    "realtime": "实时语音"
   },
   "colorMode": {
     "system": "自动",
@@ -101,6 +102,8 @@
     "userName": "用户名称",
     "password": "密码",
     "apiKey": "API 密钥",
+    "apiKeyRequired": "需要 API 密钥才能加载模型",
+    "baseURL": "基础 URL",
     "endpoint": "端点",
     "openAi": "OpenAI",
     "azureOpenAi": "Azure OpenAI",
@@ -124,7 +127,8 @@
     "modelNameSetting": "自定义模型名称",
     "modelNameExist": "模型名称已存在",
     "removeCustomService": "删除自定义 API 服务",
-    "ensureRemoveCustomService": "确定要删除该自定义 API 服务吗？"
+    "ensureRemoveCustomService": "确定要删除该自定义 API 服务吗？",
+    "defaultPage": "默认页面"
   },
   "auth": {
     "signIn": "登录",

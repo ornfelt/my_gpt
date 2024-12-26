@@ -15,7 +15,12 @@
 		mobile,
 		socket,
 		activeUserCount,
-		USAGE_POOL
+		USAGE_POOL,
+		chatId,
+		chats,
+		currentChatPage,
+		tags,
+		temporaryChatEnabled
 	} from '$lib/stores';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -32,13 +37,121 @@
 	import { WEBUI_BASE_URL, WEBUI_HOSTNAME } from '$lib/constants';
 	import i18n, { initI18n, getLanguages } from '$lib/i18n';
 	import { bestMatchingLanguage } from '$lib/utils';
+	import { getAllTags, getChatList } from '$lib/apis/chats';
+	import NotificationToast from '$lib/components/NotificationToast.svelte';
 
 	setContext('i18n', i18n);
 
 	let loaded = false;
 	const BREAKPOINT = 768;
 
-	let wakeLock = null;
+	const setupSocket = async (enableWebsocket) => {
+		const _socket = io(`${WEBUI_BASE_URL}` || undefined, {
+			reconnection: true,
+			reconnectionDelay: 1000,
+			reconnectionDelayMax: 5000,
+			randomizationFactor: 0.5,
+			path: '/ws/socket.io',
+			transports: enableWebsocket ? ['websocket'] : ['polling', 'websocket'],
+			auth: { token: localStorage.token }
+		});
+
+		await socket.set(_socket);
+
+		_socket.on('connect_error', (err) => {
+			console.log('connect_error', err);
+		});
+
+		_socket.on('connect', () => {
+			console.log('connected', _socket.id);
+		});
+
+		_socket.on('reconnect_attempt', (attempt) => {
+			console.log('reconnect_attempt', attempt);
+		});
+
+		_socket.on('reconnect_failed', () => {
+			console.log('reconnect_failed');
+		});
+
+		_socket.on('disconnect', (reason, details) => {
+			console.log(`Socket ${_socket.id} disconnected due to ${reason}`);
+			if (details) {
+				console.log('Additional details:', details);
+			}
+		});
+
+		_socket.on('user-count', (data) => {
+			console.log('user-count', data);
+			activeUserCount.set(data.count);
+		});
+
+		_socket.on('usage', (data) => {
+			console.log('usage', data);
+			USAGE_POOL.set(data['models']);
+		});
+	};
+
+	const chatEventHandler = async (event) => {
+		const chat = $page.url.pathname.includes(`/c/${event.chat_id}`);
+
+		if (
+			(event.chat_id !== $chatId && !$temporaryChatEnabled) ||
+			document.visibilityState !== 'visible'
+		) {
+			await tick();
+			const type = event?.data?.type ?? null;
+			const data = event?.data?.data ?? null;
+
+			if (type === 'chat:completion') {
+				const { done, content, title } = data;
+
+				if (done) {
+					toast.custom(NotificationToast, {
+						componentProps: {
+							onClick: () => {
+								goto(`/c/${event.chat_id}`);
+							},
+							content: content,
+							title: title
+						},
+						duration: 15000,
+						unstyled: true
+					});
+				}
+			} else if (type === 'chat:title') {
+				currentChatPage.set(1);
+				await chats.set(await getChatList(localStorage.token, $currentChatPage));
+			} else if (type === 'chat:tags') {
+				tags.set(await getAllTags(localStorage.token));
+			}
+		}
+	};
+
+	const channelEventHandler = async (event) => {
+		// check url path
+		const channel = $page.url.pathname.includes(`/channels/${event.channel_id}`);
+
+		if ((!channel || document.visibilityState !== 'visible') && event?.user?.id !== $user?.id) {
+			await tick();
+			const type = event?.data?.type ?? null;
+			const data = event?.data?.data ?? null;
+
+			if (type === 'message') {
+				toast.custom(NotificationToast, {
+					componentProps: {
+						onClick: () => {
+							goto(`/channels/${event.channel_id}`);
+						},
+						content: data?.content,
+						title: event?.channel?.name
+					},
+					duration: 15000,
+					unstyled: true
+				});
+			}
+		}
+	};
 
 	onMount(async () => {
 		theme.set(localStorage.theme);
@@ -53,34 +166,6 @@
 		};
 
 		window.addEventListener('resize', onResize);
-
-		const setWakeLock = async () => {
-			try {
-				wakeLock = await navigator.wakeLock.request('screen');
-			} catch (err) {
-				// The Wake Lock request has failed - usually system related, such as battery.
-				console.log(err);
-			}
-
-			if (wakeLock) {
-				// Add a listener to release the wake lock when the page is unloaded
-				wakeLock.addEventListener('release', () => {
-					// the wake lock has been released
-					console.log('Wake Lock released');
-				});
-			}
-		};
-
-		if ('wakeLock' in navigator) {
-			await setWakeLock();
-
-			document.addEventListener('visibilitychange', async () => {
-				// Re-request the wake lock if the document becomes visible
-				if (wakeLock !== null && document.visibilityState === 'visible') {
-					await setWakeLock();
-				}
-			});
-		}
 
 		let backendConfig = null;
 		try {
@@ -110,26 +195,7 @@
 			await WEBUI_NAME.set(backendConfig.name);
 
 			if ($config) {
-				const _socket = io(`${WEBUI_BASE_URL}`, {
-					path: '/ws/socket.io',
-					auth: { token: localStorage.token }
-				});
-
-				_socket.on('connect', () => {
-					console.log('connected');
-				});
-
-				await socket.set(_socket);
-
-				_socket.on('user-count', (data) => {
-					console.log('user-count', data);
-					activeUserCount.set(data.count);
-				});
-
-				_socket.on('usage', (data) => {
-					console.log('usage', data);
-					USAGE_POOL.set(data['models']);
-				});
+				await setupSocket($config.features?.enable_websocket ?? true);
 
 				if (localStorage.token) {
 					// Get Session User Info
@@ -140,7 +206,13 @@
 
 					if (sessionUser) {
 						// Save Session User to Store
+						$socket.emit('user-join', { auth: { token: sessionUser.token } });
+
+						$socket?.on('chat-events', chatEventHandler);
+						$socket?.on('channel-events', channelEventHandler);
+
 						await user.set(sessionUser);
+						await config.set(await getBackendConfig());
 					} else {
 						// Redirect Invalid Session User to /auth Page
 						localStorage.removeItem('token');
@@ -211,4 +283,14 @@
 	<slot />
 {/if}
 
-<Toaster richColors position="top-center" />
+<Toaster
+	theme={$theme.includes('dark')
+		? 'dark'
+		: $theme === 'system'
+			? window.matchMedia('(prefers-color-scheme: dark)').matches
+				? 'dark'
+				: 'light'
+			: 'light'}
+	richColors
+	position="top-right"
+/>

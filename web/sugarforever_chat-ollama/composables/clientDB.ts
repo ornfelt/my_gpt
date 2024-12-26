@@ -7,7 +7,7 @@ export interface ChatSession {
   updateTime: number
   model?: string
   modelFamily?: string
-  models: string[]
+  models?: string[]
   instructionId?: number
   knowledgeBaseId?: number
   attachedMessagesCount: number
@@ -32,7 +32,9 @@ export interface ChatHistory {
       blobType: string
       source: string
     }
-  }>
+  }>,
+  toolResult: boolean,
+  toolCallId?: string
 }
 
 export class MySubClassedDexie extends Dexie {

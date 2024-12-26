@@ -1,5 +1,5 @@
 import { TextInput } from '@neo4j-ndl/react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useCredentials } from '../../../context/UserCredentials';
 import { useFileContext } from '../../../context/UsersFiles';
 import { urlScanAPI } from '../../../services/URLScan';
@@ -9,6 +9,7 @@ import CustomModal from '../../../HOC/CustomModal';
 import { useGoogleLogin } from '@react-oauth/google';
 import { useAlertContext } from '../../../context/Alert';
 import { buttonCaptions } from '../../../utils/Constants';
+import { showErrorToast, showNormalToast } from '../../../utils/toasts';
 
 const GCSModal: React.FC<GCSModalProps> = ({ hideModal, open, openGCSModal }) => {
   const [bucketName, setbucketName] = useState<string>('');
@@ -22,14 +23,22 @@ const GCSModal: React.FC<GCSModalProps> = ({ hideModal, open, openGCSModal }) =>
   const { setFilesData, model, filesData } = useFileContext();
 
   const defaultValues: CustomFileBase = {
-    processing: 0,
+    processingTotalTime: 0,
     status: 'New',
-    NodesCount: 0,
-    relationshipCount: 0,
+    nodesCount: 0,
+    relationshipsCount: 0,
     type: 'TEXT',
     model: model,
     fileSource: 'gcs bucket',
     processingProgress: undefined,
+    retryOption: '',
+    retryOptionStatus: false,
+    chunkNodeCount: 0,
+    chunkRelCount: 0,
+    entityNodeCount: 0,
+    entityEntityRelCount: 0,
+    communityNodeCount: 0,
+    communityRelCount: 0,
   };
 
   const reset = () => {
@@ -37,17 +46,6 @@ const GCSModal: React.FC<GCSModalProps> = ({ hideModal, open, openGCSModal }) =>
     setFolderName('');
     setprojectId('');
   };
-
-  useEffect(() => {
-    if (status != 'unknown') {
-      setTimeout(() => {
-        setStatusMessage('');
-        setStatus('unknown');
-        reset();
-        hideModal();
-      }, 5000);
-    }
-  }, []);
 
   const googleLogin = useGoogleLogin({
     onSuccess: async (codeResponse) => {
@@ -67,7 +65,7 @@ const GCSModal: React.FC<GCSModalProps> = ({ hideModal, open, openGCSModal }) =>
           access_token: codeResponse.access_token,
         });
         if (apiResponse.data.status == 'Failed' || !apiResponse.data) {
-          showAlert('error', apiResponse?.data?.message);
+          showErrorToast(apiResponse?.data?.message);
           setTimeout(() => {
             setStatus('unknown');
             reset();
@@ -77,54 +75,56 @@ const GCSModal: React.FC<GCSModalProps> = ({ hideModal, open, openGCSModal }) =>
         }
         const apiResCheck = apiResponse?.data?.success_count && apiResponse.data.failed_count;
         if (apiResCheck) {
-          showAlert(
-            'info',
+          showNormalToast(
             `Successfully Created Source Nodes for ${apiResponse.data.success_count} and Failed for ${apiResponse.data.failed_count} Files`
           );
         } else if (apiResponse?.data?.success_count) {
-          showAlert('info', `Successfully Created Source Nodes for ${apiResponse.data.success_count} Files`);
+          showNormalToast(`Successfully Created Source Nodes for ${apiResponse.data.success_count} Files`);
         } else if (apiResponse.data.failed_count) {
-          showAlert('error', `Failed to Created Source Node for ${apiResponse.data.failed_count} Files`);
+          showErrorToast(`Failed to Created Source Node for ${apiResponse.data.failed_count} Files`);
         } else {
-          showAlert('error', `Invalid Folder Name`);
+          showErrorToast(`Invalid Folder Name`);
         }
         const copiedFilesData = [...filesData];
-        apiResponse?.data?.file_name?.forEach((item: fileName) => {
-          const filedataIndex = copiedFilesData.findIndex((filedataitem) => filedataitem?.name === item.fileName);
-          if (filedataIndex == -1) {
-            copiedFilesData.unshift({
-              name: item.fileName,
-              size: item.fileSize ?? 0,
-              gcsBucket: item.gcsBucketName,
-              gcsBucketFolder: item.gcsBucketFolder,
-              google_project_id: item.gcsProjectId,
-              // total_pages: 'N/A',
-              id: uuidv4(),
-              access_token: codeResponse.access_token,
-              ...defaultValues,
-            });
-          } else {
-            const tempFileData = copiedFilesData[filedataIndex];
-            copiedFilesData.splice(filedataIndex, 1);
-            copiedFilesData.unshift({
-              ...tempFileData,
-              status: defaultValues.status,
-              NodesCount: defaultValues.NodesCount,
-              relationshipCount: defaultValues.relationshipCount,
-              processing: defaultValues.processing,
-              model: defaultValues.model,
-              fileSource: defaultValues.fileSource,
-              processingProgress: defaultValues.processingProgress,
-              access_token: codeResponse.access_token,
-              // total_pages: 'N/A',
-            });
+        if (apiResponse?.data?.file_name?.length) {
+          for (let index = 0; index < apiResponse?.data?.file_name.length; index++) {
+            const item: fileName = apiResponse?.data?.file_name[index];
+            const filedataIndex = copiedFilesData.findIndex((filedataitem) => filedataitem?.name === item.fileName);
+            if (filedataIndex == -1) {
+              copiedFilesData.unshift({
+                name: item.fileName,
+                size: item.fileSize ?? 0,
+                gcsBucket: item.gcsBucketName,
+                gcsBucketFolder: item.gcsBucketFolder,
+                googleProjectId: item.gcsProjectId,
+                id: uuidv4(),
+                accessToken: codeResponse.access_token,
+                ...defaultValues,
+                uploadProgress: 100,
+              });
+            } else {
+              const tempFileData = copiedFilesData[filedataIndex];
+              copiedFilesData.splice(filedataIndex, 1);
+              copiedFilesData.unshift({
+                ...tempFileData,
+                status: defaultValues.status,
+                nodesCount: defaultValues.nodesCount,
+                relationshipsCount: defaultValues.relationshipsCount,
+                processingTotalTime: defaultValues.processingTotalTime,
+                model: defaultValues.model,
+                fileSource: defaultValues.fileSource,
+                processingProgress: defaultValues.processingProgress,
+                accessToken: codeResponse.access_token,
+                uploadProgress: 100,
+              });
+            }
           }
-        });
+        }
         setFilesData(copiedFilesData);
         reset();
       } catch (error) {
         if (showAlert != undefined) {
-          showAlert('error', 'Some Error Occurred or Please Check your Instance Connection');
+          showNormalToast('Some Error Occurred or Please Check your Instance Connection');
         }
       }
       setTimeout(() => {
@@ -133,19 +133,18 @@ const GCSModal: React.FC<GCSModalProps> = ({ hideModal, open, openGCSModal }) =>
       }, 500);
     },
     onError: (errorResponse) => {
-      showAlert(
-        'error',
+      showErrorToast(
         errorResponse.error_description ?? 'Some Error Occurred or Please try signin with your google account'
       );
     },
     scope: 'https://www.googleapis.com/auth/devstorage.read_only',
     onNonOAuthError: (error: nonoautherror) => {
       console.log(error);
-      showAlert('info', error.message as string);
+      showNormalToast(error.message as string);
     },
   });
 
-  const submitHandler = async () => {
+  const submitHandler = () => {
     if (bucketName.trim() === '' || projectId.trim() === '') {
       setStatus('danger');
       setStatusMessage('Please Fill the Credentials');
@@ -165,6 +164,19 @@ const GCSModal: React.FC<GCSModalProps> = ({ hideModal, open, openGCSModal }) =>
     reset();
     setStatus('unknown');
   }, []);
+  const handleKeyPress: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
+    if (e.code === 'Enter') {
+      e.preventDefault(); //
+      // @ts-ignore
+      const { form } = e.target;
+      const index = Array.prototype.indexOf.call(form, e.target);
+      if (index + 1 < form.elements.length) {
+        form.elements[index + 1].focus();
+      } else {
+        submitHandler();
+      }
+    }
+  };
   return (
     <CustomModal
       open={open}
@@ -176,47 +188,59 @@ const GCSModal: React.FC<GCSModalProps> = ({ hideModal, open, openGCSModal }) =>
       submitLabel={buttonCaptions.submit}
     >
       <div className='w-full inline-block'>
-        <TextInput
-          id='project id'
-          value={projectId}
-          disabled={false}
-          label='Project ID'
-          aria-label='Project ID'
-          placeholder=''
-          autoFocus
-          fluid
-          required
-          onChange={(e) => {
-            setprojectId(e.target.value);
-          }}
-        ></TextInput>
-        <TextInput
-          id='bucketname'
-          value={bucketName}
-          disabled={false}
-          label='Bucket Name'
-          aria-label='Bucket Name'
-          placeholder=''
-          autoFocus
-          fluid
-          required
-          onChange={(e) => {
-            setbucketName(e.target.value);
-          }}
-        />
-        <TextInput
-          id='foldername'
-          value={folderName}
-          disabled={false}
-          label='Folder Name'
-          aria-label='Folder Name'
-          helpText='Optional'
-          placeholder=''
-          fluid
-          onChange={(e) => {
-            setFolderName(e.target.value);
-          }}
-        />
+        <form>
+          <TextInput
+            htmlAttributes={{
+              id: 'project id',
+              autoFocus: true,
+              onKeyDown: handleKeyPress,
+              'aria-label': 'Project ID',
+              placeholder: '',
+            }}
+            value={projectId}
+            isDisabled={false}
+            label='Project ID'
+            isFluid={true}
+            isRequired={true}
+            onChange={(e) => {
+              setprojectId(e.target.value);
+            }}
+          ></TextInput>
+          <TextInput
+            htmlAttributes={{
+              id: 'bucketname',
+              autoFocus: true,
+              onKeyDown: handleKeyPress,
+              'aria-label': 'Bucket Name',
+              placeholder: '',
+            }}
+            value={bucketName}
+            isDisabled={false}
+            label='Bucket Name'
+            isFluid={true}
+            isRequired={true}
+            onChange={(e) => {
+              setbucketName(e.target.value);
+            }}
+          />
+          <TextInput
+            htmlAttributes={{
+              id: 'foldername',
+              autoFocus: true,
+              onKeyDown: handleKeyPress,
+              'aria-label': 'Folder Name',
+              placeholder: '',
+            }}
+            value={folderName}
+            isDisabled={false}
+            label='Folder Name'
+            helpText='Optional'
+            isFluid={true}
+            onChange={(e) => {
+              setFolderName(e.target.value);
+            }}
+          />
+        </form>
       </div>
     </CustomModal>
   );

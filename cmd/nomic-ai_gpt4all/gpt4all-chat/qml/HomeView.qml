@@ -47,7 +47,7 @@ Rectangle {
                     id: welcome
                     Layout.alignment: Qt.AlignHCenter
                     text: qsTr("Welcome to GPT4All")
-                    font.pixelSize: theme.fontSizeBanner
+                    font.pixelSize: theme.fontSizeBannerLarge
                     color: theme.titleTextColor
                 }
 
@@ -76,8 +76,8 @@ Rectangle {
 
                 MyWelcomeButton {
                     Layout.fillWidth: true
-                    Layout.maximumWidth: 500
-                    Layout.preferredHeight: 150
+                    Layout.maximumWidth: 150 + 200 * theme.fontScale
+                    Layout.preferredHeight: 40 + 90 * theme.fontScale
                     text: qsTr("Start Chatting")
                     description: qsTr("Chat with any LLM")
                     imageSource: "qrc:/gpt4all/icons/chat.svg"
@@ -87,8 +87,8 @@ Rectangle {
                 }
                 MyWelcomeButton {
                     Layout.fillWidth: true
-                    Layout.maximumWidth: 500
-                    Layout.preferredHeight: 150
+                    Layout.maximumWidth: 150 + 200 * theme.fontScale
+                    Layout.preferredHeight: 40 + 90 * theme.fontScale
                     text: qsTr("LocalDocs")
                     description: qsTr("Chat with your local files")
                     imageSource: "qrc:/gpt4all/icons/db.svg"
@@ -98,8 +98,8 @@ Rectangle {
                 }
                 MyWelcomeButton {
                     Layout.fillWidth: true
-                    Layout.maximumWidth: 500
-                    Layout.preferredHeight: 150
+                    Layout.maximumWidth: 150 + 200 * theme.fontScale
+                    Layout.preferredHeight: 40 + 90 * theme.fontScale
                     text: qsTr("Find Models")
                     description: qsTr("Explore and download models")
                     imageSource: "qrc:/gpt4all/icons/models.svg"
@@ -254,9 +254,9 @@ Rectangle {
                     spacing: 40
 
                     MyFancyLink {
-                        text: qsTr("GPT4All.io")
+                        text: qsTr("nomic.ai")
                         imageSource: "qrc:/gpt4all/icons/globe.svg"
-                        onClicked: { Qt.openUrlExternally("https://gpt4all.io") }
+                        onClicked: { Qt.openUrlExternally("https://www.nomic.ai/gpt4all") }
                         rightPadding: 15
                     }
                 }
@@ -281,7 +281,7 @@ Rectangle {
                 Layout.alignment: Qt.AlignCenter
                 text: qsTr("Subscribe to Newsletter")
                 imageSource: "qrc:/gpt4all/icons/email.svg"
-                onClicked: { Qt.openUrlExternally("https://forms.nomic.ai/gpt4all-release-notes-signup") }
+                onClicked: { Qt.openUrlExternally("https://nomic.ai/gpt4all/#newsletter-form") }
             }
         }
     }

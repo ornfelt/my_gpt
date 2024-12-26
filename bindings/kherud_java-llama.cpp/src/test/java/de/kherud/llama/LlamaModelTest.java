@@ -1,7 +1,6 @@
 package de.kherud.llama;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -9,6 +8,7 @@ import de.kherud.llama.args.LogFormat;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class LlamaModelTest {
@@ -24,6 +24,7 @@ public class LlamaModelTest {
 //		LlamaModel.setLogger(LogFormat.TEXT, (level, msg) -> System.out.println(level + ": " + msg));
 		model = new LlamaModel(
 				new ModelParameters()
+						.setNCtx(128)
 						.setModelFilePath("models/codellama-7b.Q2_K.gguf")
 //						.setModelUrl("https://huggingface.co/TheBloke/CodeLlama-7B-GGUF/resolve/main/codellama-7b.Q2_K.gguf")
 						.setNGpuLayers(43)
@@ -130,7 +131,7 @@ public class LlamaModelTest {
 				.setGrammar("root ::= (\"a\" | \"b\")+")
 				.setNPredict(nPredict);
 		String output = model.complete(params);
-		Assert.assertTrue(output.matches("[ab]+"));
+		Assert.assertTrue(output + " doesn't match [ab]+", output.matches("[ab]+"));
 		int generated = model.encode(output).length;
 		Assert.assertTrue(generated > 0 && generated <= nPredict + 1);
 	}

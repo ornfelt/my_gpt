@@ -1,4 +1,5 @@
 using LLama.Common;
+using LLama.Sampling;
 
 namespace LLama.Examples.Examples;
 
@@ -10,7 +11,6 @@ public class ChatSessionWithRestart
 
         var parameters = new ModelParams(modelPath)
         {
-            Seed = 1337,
             GpuLayerCount = 5
         };
         using var model = await LLamaWeights.LoadFromFileAsync(parameters);
@@ -29,9 +29,12 @@ public class ChatSessionWithRestart
         ChatSession session = new ChatSession(executor);
         session.LoadSession(resetState);
 
-        InferenceParams inferenceParams = new InferenceParams()
+        var inferenceParams = new InferenceParams
         {
-            Temperature = 0.9f,
+            SamplingPipeline = new DefaultSamplingPipeline
+            {
+                Temperature = 0.9f
+            },
             AntiPrompts = new List<string> { "User:" }
         };
 

@@ -9,6 +9,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using LLama.Exceptions;
+using LLama.Sampling;
 using Microsoft.Extensions.Logging;
 
 
@@ -25,6 +26,8 @@ namespace LLama
         private int _EmbedImagePosition = -1;
         private List<SafeLlavaImageEmbedHandle> _imageEmbedHandles = new List<SafeLlavaImageEmbedHandle>();
         private bool _imageInPrompt = false;
+
+        private ISamplingPipeline? _pipeline;
 
         /// <summary>
         /// 
@@ -57,7 +60,6 @@ namespace LLama
                 SessionFilePath = _pathSession,
                 SessionTokens = _session_tokens.ToArray(),
                 LastTokensCapacity = _last_n_tokens.Capacity,
-                MirostatMu = MirostatMu
             };
             return state;
         }
@@ -295,8 +297,6 @@ namespace LLama
 
             if (_embed_inps.Count <= _consumedTokensCount && !args.WaitForInput)
             {
-                var repeat_last_n = inferenceParams.RepeatLastTokensCount < 0 ? (int)Context.ContextSize : inferenceParams.RepeatLastTokensCount;
-
                 // optionally save the session on first sample (for faster prompt loading next time)
                 if (!string.IsNullOrEmpty(_pathSession) && args.NeedToSaveSession)
                 {
@@ -304,25 +304,9 @@ namespace LLama
                     SaveSessionFile(_pathSession);
                 }
 
-                LLamaToken id;
-                if (inferenceParams.SamplingPipeline is not null)
-                {
-                    id = inferenceParams.SamplingPipeline.Sample(Context.NativeHandle, Context.NativeHandle.GetLogitsIth(batch.TokenCount - 1), _last_n_tokens.ToArray());
-                    inferenceParams.SamplingPipeline.Accept(Context.NativeHandle, id);
-                }
-                else
-                {
-                    var tokenDataArray = Context.ApplyPenalty(batch.TokenCount - 1, _last_n_tokens, inferenceParams.LogitBias, repeat_last_n,
-                        inferenceParams.RepeatPenalty, inferenceParams.FrequencyPenalty, inferenceParams.PresencePenalty, inferenceParams.PenalizeNL);
 
-                    var mu = MirostatMu;
-                    id = Context.Sample(
-                        tokenDataArray, ref mu, inferenceParams.Temperature, inferenceParams.Mirostat, inferenceParams.MirostatTau,
-                        inferenceParams.MirostatEta, inferenceParams.TopK, inferenceParams.TopP, inferenceParams.TfsZ, inferenceParams.TypicalP, inferenceParams.Grammar,
-                        inferenceParams.MinP
-                    );
-                    MirostatMu = mu;
-                }
+                // Sample with the pipeline
+                var id = inferenceParams.SamplingPipeline.Sample(Context.NativeHandle, batch.TokenCount - 1);
 
                 _last_n_tokens.Enqueue(id);
 

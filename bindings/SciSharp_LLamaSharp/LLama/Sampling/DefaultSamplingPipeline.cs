@@ -13,196 +13,205 @@ public sealed class DefaultSamplingPipeline
     /// <summary>
     /// Bias values to add to certain logits
     /// </summary>
-    public Dictionary<int, float> LogitBias { get; } = new();
+    public IReadOnlyDictionary<LLamaToken, float> LogitBias { get; init; } = new Dictionary<LLamaToken, float>();
 
     /// <summary>
     /// Repetition penalty, as described in https://arxiv.org/abs/1909.05858
     /// </summary>
-    public float RepeatPenalty { get; set; }
+    public float RepeatPenalty { get; init; } = 1;
 
     /// <summary>
     /// Frequency penalty as described by OpenAI: https://platform.openai.com/docs/api-reference/chat/create<br />
     /// Number between -2.0 and 2.0. Positive values penalize new tokens based on their existing frequency in the text
     /// so far, decreasing the model's likelihood to repeat the same line verbatim.
     /// </summary>
+    [Obsolete($"Use {nameof(FrequencyPenalty)} instead.")]
     public float AlphaFrequency
     {
-        get => _alphaFreq;
-        set
+        get => _frequencyPenalty;
+        init
         {
             if (value < -2)
-                throw new ArgumentOutOfRangeException(nameof(value), "AlphaFrequency must be greater than -2");
+                throw new ArgumentOutOfRangeException(nameof(value), $"{nameof(AlphaFrequency)} must be greater than -2");
             if (value > 2)
-                throw new ArgumentOutOfRangeException(nameof(value), "AlphaFrequency must be less than 2");
-            _alphaFreq = value;
+                throw new ArgumentOutOfRangeException(nameof(value), $"{nameof(AlphaFrequency)} must be less than 2");
+            _frequencyPenalty = value;
         }
     }
-    private float _alphaFreq;
 
     /// <summary>
     /// Presence penalty as described by OpenAI: https://platform.openai.com/docs/api-reference/chat/create<br />
     /// Number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the
     /// text so far, increasing the model's likelihood to talk about new topics.
     /// </summary>
+    [Obsolete($"Use {nameof(PresencePenalty)} instead.")]
     public float AlphaPresence
     {
-        get => _alphaPresence;
-        set
+        get => _presencePenalty;
+        init
         {
             if (value < -2)
-                throw new ArgumentOutOfRangeException(nameof(value), "AlphaFrequency must be greater than -2");
+                throw new ArgumentOutOfRangeException(nameof(value), $"{nameof(AlphaPresence)} must be greater than -2");
             if (value > 2)
-                throw new ArgumentOutOfRangeException(nameof(value), "AlphaFrequency must be less than 2");
-            _alphaPresence = value;
+                throw new ArgumentOutOfRangeException(nameof(value), $"{nameof(AlphaPresence)} must be less than 2");
+            _presencePenalty = value;
         }
     }
-    private float _alphaPresence;
+
+    /// <summary>
+    /// Frequency penalty as described by OpenAI: https://platform.openai.com/docs/api-reference/chat/create<br />
+    /// Number between -2.0 and 2.0. Positive values penalize new tokens based on their existing frequency in the text
+    /// so far, decreasing the model's likelihood to repeat the same line verbatim.
+    /// </summary>
+    public float FrequencyPenalty
+    {
+        get => _frequencyPenalty;
+        init
+        {
+            if (value < -2)
+                throw new ArgumentOutOfRangeException(nameof(value), $"{nameof(FrequencyPenalty)} must be greater than -2");
+            if (value > 2)
+                throw new ArgumentOutOfRangeException(nameof(value), $"{nameof(FrequencyPenalty)} must be less than 2");
+            _frequencyPenalty = value;
+        }
+    }
+    private readonly float _frequencyPenalty;
+
+    /// <summary>
+    /// Presence penalty as described by OpenAI: https://platform.openai.com/docs/api-reference/chat/create<br />
+    /// Number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the
+    /// text so far, increasing the model's likelihood to talk about new topics.
+    /// </summary>
+    public float PresencePenalty
+    {
+        get => _presencePenalty;
+        init
+        {
+            if (value < -2)
+                throw new ArgumentOutOfRangeException(nameof(value), $"{nameof(PresencePenalty)} must be greater than -2");
+            if (value > 2)
+                throw new ArgumentOutOfRangeException(nameof(value), $"{nameof(PresencePenalty)} must be less than 2");
+            _presencePenalty = value;
+        }
+    }
+    private readonly float _presencePenalty;
+
+    /// <summary>
+    /// How many tokens should be considered for penalizing repetition
+    /// </summary>
+    public int RepeatPenaltyCount { get; init; } = 64;
+
+    /// <summary>
+    /// Whether the newline token should be protected from being modified by penalty
+    /// </summary>
+    public bool PenalizeNewline { get; init; } = false;
+
+    /// <summary>
+    /// Whether the EOS token should be protected from being modified by penalty
+    /// </summary>
+    [Obsolete($"This doesn't do what the name implies. If you're sure you want to use it, use {nameof(PreventEOS)}.")]
+    public bool PenalizeEOS { get; init; } = false;
+
+    /// <summary>
+    /// Whether the EOS token should be suppressed. Setting this to 'true' prevents EOS from being sampled
+    /// </summary>
+    public bool PreventEOS { get; init; } = false;
 
     /// <summary>
     /// Temperature to apply (higher temperature is more "creative")
     /// </summary>
-    public float Temperature { get; set; } = 0.75f;
+    public float Temperature { get; init; } = 0.75f;
 
     /// <summary>
     /// Number of tokens to keep in TopK sampling
     /// </summary>
-    public int TopK { get; set; }
-
-    /// <summary>
-    /// Z value for tail free sampling
-    /// </summary>
-    public float TailFreeZ { get; set; }
+    public int TopK { get; init; } = 40;
 
     /// <summary>
     /// P value for locally typical sampling
     /// </summary>
-    public float TypicalP { get; set; }
+    public float TypicalP { get; init; } = 1;
 
     /// <summary>
     /// P value for TopP sampling
     /// </summary>
-    public float TopP { get; set; } = 1f;
+    public float TopP { get; init; } = 0.9f;
 
     /// <summary>
     /// P value for MinP sampling
     /// </summary>
-    public float MinP { get; set; }
+    public float MinP { get; init; } = 0.1f;
 
     /// <summary>
-    /// Whether the newline value should be protected from being modified by logit bias and repeat penalty
+    /// Grammar to apply to constrain possible tokens
     /// </summary>
-    public bool PenalizeNewline { get; set; } = false;
+    public Grammar? Grammar { get; init; }
 
-    /// <inheritdoc />
-    protected override void ProcessLogits(SafeLLamaContextHandle ctx, Span<float> logits, ReadOnlySpan<LLamaToken> lastTokens)
+    /// <summary>
+    /// The minimum number of tokens to keep for samplers which remove tokens
+    /// </summary>
+    public int MinKeep { get; set; } = 1;
+
+    /// <summary>
+    /// Seed to use for random sampling
+    /// </summary>
+    public uint Seed { get; set; } = GetRandomSeed();
+
+
+    private static Random RandomSeedGenerator = new();
+    private static uint GetRandomSeed()
     {
-        // Apply logit bias
-        foreach (var (key, value) in LogitBias)
-            logits[key] += value;
-
+        lock (RandomSeedGenerator)
+            return (uint) RandomSeedGenerator.Next(0, int.MaxValue) + (uint) RandomSeedGenerator.Next(0, int.MaxValue);
     }
 
+
     /// <inheritdoc />
-    protected override LLamaToken ProcessTokenDataArray(SafeLLamaContextHandle ctx, LLamaTokenDataArray candidates, ReadOnlySpan<LLamaToken> lastTokens)
+    protected override SafeLLamaSamplerChainHandle CreateChain(SafeLLamaContextHandle context)
     {
-        // Only apply repetition penalty if we really must. Otherwise avoid all this work
-        if (lastTokens.Length > 0 && (RepeatPenalty != 0 || AlphaFrequency != 0 || AlphaPresence != 0))
+        var chain = SafeLLamaSamplerChainHandle.Create(LLamaSamplerChainParams.Default());
+
+        // Rent a temporary array and copy the biases into it
+        var biases = ArrayPool<LLamaLogitBias>.Shared.Rent(LogitBias.Count);
+        try
         {
-            // Save the logit value for the newline token
-            var (nlIndex, nlLogit) = PenalizeNewline ? GetNewlineLogit(ctx, candidates) : (-1, 0);
-
-            // Apply penalties to candidates
-            candidates.RepetitionPenalty(ctx, lastTokens, RepeatPenalty, AlphaFrequency, AlphaPresence);
-
-            // Restore newline token
-            if (!PenalizeNewline)
-                SetNewlineLogit(ctx, candidates, nlIndex, nlLogit);
-        }
-
-        // Apply the normal llama.cpp pipeline
-        candidates.ApplyGrammar(ctx, Grammar);
-        candidates.TopK(ctx, TopK);
-        candidates.TailFree(ctx, TailFreeZ);
-        candidates.LocallyTypical(ctx, TypicalP);
-        candidates.TopP(ctx, TopP);
-        candidates.MinP(ctx, MinP);
-        candidates.Temperature(ctx, Temperature);
-        return candidates.SampleToken(ctx);
-    }
-
-    private static (int, float) GetNewlineLogit(SafeLLamaContextHandle ctx, LLamaTokenDataArray candidates)
-    {
-        var nlToken = ctx.ModelHandle.Tokens.Newline;
-
-        if (nlToken.HasValue)
-        {
-            // Try using the ID as an index
-            if (candidates.Data.Span[(int)nlToken].id == nlToken)
-                return ((int)nlToken, candidates.Data.Span[(int)nlToken].logit);
-
-            // Exhaustive search
-            var span = candidates.Data.Span;
-            for (var i = 0; i < span.Length; i++)
+            var index = 0;
+            foreach (var bias in LogitBias)
             {
-                if (span[i].id == nlToken)
-                    return (i, span[i].logit);
+                biases[index++] = new LLamaLogitBias
+                {
+                    Token = bias.Key,
+                    Bias = bias.Value
+                };
             }
+
+            // Add the biases to the sampler
+            chain.AddLogitBias(context.ModelHandle.VocabCount, biases.AsSpan(0, LogitBias.Count));
         }
-
-        return (-1, 0);
-    }
-
-    private static void SetNewlineLogit(SafeLLamaContextHandle ctx, LLamaTokenDataArray candidates, int indexHint, float logit)
-    {
-        var nlToken = ctx.ModelHandle.Tokens.Newline;
-        if (!nlToken.HasValue)
-            return;
-
-        // Try checking the index where we found it last time. It might not be there if `RepetitionPenalty` changed order
-        if (indexHint >= 0 && candidates.Data.Span[indexHint].id == nlToken)
+        finally
         {
-            candidates.Data.Span[indexHint].logit = logit;
-            return;
+            ArrayPool<LLamaLogitBias>.Shared.Return(biases);
         }
 
-        // Didn't find it, do an exhaustive search for it
-        var span = candidates.Data.Span;
-        for (var i = 0; i < candidates.Data.Length; i++)
-        {
-            if (span[i].id == nlToken)
-            {
-                span[i].logit = logit;
-                return;
-            }
-        }
-    }
+        if (Grammar != null)
+            chain.AddGrammar(context.ModelHandle, Grammar.Gbnf, Grammar.Root);
 
-    /// <inheritdoc />
-    public override void Accept(SafeLLamaContextHandle ctx, LLamaToken token)
-    {
-        Grammar?.AcceptToken(ctx, token);
-    }
+        chain.AddPenalties(
+            context.VocabCount,
+            context.ModelHandle.Tokens.EOS, context.ModelHandle.Tokens.Newline ?? 0,
+            RepeatPenaltyCount, RepeatPenalty,
+            FrequencyPenalty, PresencePenalty,
+            PenalizeNewline, PreventEOS
+        );
 
-    /// <inheritdoc />
-    public override ISamplingPipeline Clone()
-    {
-        var clone = new DefaultSamplingPipeline();
+        chain.AddTopK(TopK);
+        chain.AddTypical(TypicalP, MinKeep);
+        chain.AddTopP(TopP, MinKeep);
+        chain.AddMinP(MinP, MinKeep);
+        chain.AddTemperature(Temperature);
 
-        foreach (var (k, v) in LogitBias)
-            clone.LogitBias.Add(k, v);
+        chain.AddDistributionSampler(Seed);
 
-        clone.Grammar = Grammar?.Clone();
-        clone.RepeatPenalty = RepeatPenalty;
-        clone.AlphaFrequency = AlphaFrequency;
-        clone.AlphaPresence = AlphaPresence;
-        clone.Temperature = Temperature;
-        clone.TopK = TopK;
-        clone.TailFreeZ = TailFreeZ;
-        clone.TypicalP = TypicalP;
-        clone.TopP = TopP;
-        clone.MinP = MinP;
-        clone.PenalizeNewline = PenalizeNewline;
-
-        return clone;
+        return chain;
     }
 }

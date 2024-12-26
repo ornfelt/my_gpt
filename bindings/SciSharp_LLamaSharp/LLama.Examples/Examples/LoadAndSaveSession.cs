@@ -1,4 +1,5 @@
-﻿using LLama.Common;
+using LLama.Common;
+using LLama.Sampling;
 
 namespace LLama.Examples.Examples
 {
@@ -12,7 +13,6 @@ namespace LLama.Examples.Examples
 
             var parameters = new ModelParams(modelPath)
             {
-                Seed = 1337,
                 GpuLayerCount = 5
             };
             using var model = await LLamaWeights.LoadFromFileAsync(parameters);
@@ -35,7 +35,10 @@ namespace LLama.Examples.Examples
                         new ChatHistory.Message(AuthorRole.User, prompt),
                         new InferenceParams()
                         {
-                            Temperature = 0.6f,
+                            SamplingPipeline = new DefaultSamplingPipeline
+                            {
+                                Temperature = 0.6f
+                            },
                             AntiPrompts = new List<string> { "User:" }
                         }))
                 {

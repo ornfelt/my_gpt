@@ -59,10 +59,25 @@ namespace LLama.Native
         /// </summary>
         public int LayerCount => llama_n_layers(this);
 
+        ///// <summary>
+        ///// Get the number of heads in this model
+        ///// </summary>
+        //public int HeadCount => llama_n_heads(this);
+
         /// <summary>
         /// Returns true if the model contains an encoder that requires llama_encode() call
         /// </summary>
         public bool HasEncoder => llama_model_has_encoder(this);
+
+        /// <summary>
+        /// Returns true if the model contains a decoder that requires llama_decode() call
+        /// </summary>
+        public bool HasDecoder => llama_model_has_decoder(this);
+
+        /// <summary>
+        /// Returns true if the model is recurrent (like Mamba, RWKV, etc.)
+        /// </summary>
+        public bool IsRecurrent => llama_model_is_recurrent(this);
 
         /// <summary>
         /// Get a description of this model
@@ -118,7 +133,7 @@ namespace LLama.Native
             // - File exists (automatically throws FileNotFoundException)
             // - File is readable (explicit check)
             // This provides better error messages that llama.cpp, which would throw an access violation exception in both cases.
-            using (var fs = new FileStream(modelPath, FileMode.Open))
+            using (var fs = new FileStream(modelPath, FileMode.Open, FileAccess.Read))
                 if (!fs.CanRead)
                     throw new InvalidOperationException($"Model file '{modelPath}' is not readable");
 
@@ -286,6 +301,14 @@ namespace LLama.Native
         [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
         private static extern int llama_n_layers(SafeLlamaModelHandle model);
 
+        ///// <summary>
+        ///// Get the number of heads in this model
+        ///// </summary>
+        ///// <param name="model"></param>
+        ///// <returns></returns>
+        //[DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
+        //private static extern int llama_n_heads(SafeLlamaModelHandle model);
+
         /// <summary>
         /// Get a string describing the model type
         /// </summary>
@@ -363,32 +386,29 @@ namespace LLama.Native
         private static extern LLamaToken llama_token_pad(SafeLlamaModelHandle model);
 
         /// <summary>
-        /// codellama infill tokens, Beginning of infill prefix
-        /// </summary>
-        /// <returns></returns>
-        [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
-        private static extern int llama_token_prefix(SafeLlamaModelHandle model);
-
-        /// <summary>
-        /// codellama infill tokens, Beginning of infill middle
-        /// </summary>
-        /// <returns></returns>
-        [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
-        private static extern int llama_token_middle(SafeLlamaModelHandle model);
-
-        /// <summary>
-        /// codellama infill tokens, Beginning of infill suffix
-        /// </summary>
-        /// <returns></returns>
-        [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
-        private static extern int llama_token_suffix(SafeLlamaModelHandle model);
-
-        /// <summary>
         /// codellama infill tokens, End of infill middle
         /// </summary>
         /// <returns></returns>
         [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
         private static extern int llama_token_eot(SafeLlamaModelHandle model);
+
+        [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern int llama_token_fim_pre(SafeLlamaModelHandle model);
+
+        [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern int llama_token_fim_suf(SafeLlamaModelHandle model);
+
+        [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern int llama_token_fim_mid(SafeLlamaModelHandle model);
+
+        [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern int llama_token_fim_pad(SafeLlamaModelHandle model);
+
+        [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern int llama_token_fim_rep(SafeLlamaModelHandle model);
+
+        [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern int llama_token_fim_sep(SafeLlamaModelHandle model);
 
         /// <summary>
         /// For encoder-decoder models, this function returns id of the token that must be provided
@@ -432,38 +452,50 @@ namespace LLama.Native
         [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.U1)]
         private static extern bool llama_model_has_encoder(SafeLlamaModelHandle model);
+
+        /// <summary>
+        /// Returns true if the model contains a decoder that requires llama_decode() call
+        /// </summary>
+        /// <param name="model"></param>
+        /// <returns></returns>
+        [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
+        [return: MarshalAs(UnmanagedType.U1)]
+        private static extern bool llama_model_has_decoder(SafeLlamaModelHandle model);
+
+        [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr llama_lora_adapter_init(SafeLlamaModelHandle model, string path);
+
+        /// <summary>
+        /// Returns true if the model is recurrent (like Mamba, RWKV, etc.)
+        /// </summary>
+        /// <param name="model"></param>
+        /// <returns></returns>
+        [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
+        [return: MarshalAs(UnmanagedType.U1)]
+        private static extern bool llama_model_is_recurrent(SafeLlamaModelHandle model);
         #endregion
 
         #region LoRA
         /// <summary>
-        /// Apply a LoRA adapter to a loaded model
+        /// Load a LoRA adapter from file. The adapter will be associated with this model but will not be applied
         /// </summary>
-        /// <param name="lora"></param>
-        /// <param name="scale"></param>
-        /// <param name="modelBase">A path to a higher quality model to use as a base for the layers modified by the
-        /// adapter. Can be NULL to use the current loaded model.</param>
-        /// <param name="threads"></param>
-        /// <exception cref="RuntimeError"></exception>
-        public void ApplyLoraFromFile(string lora, float scale, string? modelBase = null, int? threads = null)
+        /// <param name="path"></param>
+        /// <returns></returns>
+        /// <exception cref="InvalidOperationException"></exception>
+        public LoraAdapter LoadLoraFromFile(string path)
         {
+            path = Path.GetFullPath(path);
+
             // Try to open the model file, this will check:
             // - File exists (automatically throws FileNotFoundException)
             // - File is readable (explicit check)
             // This provides better error messages that llama.cpp, which would throw an access violation exception in both cases.
-            using (var fs = new FileStream(lora, FileMode.Open))
+            using (var fs = new FileStream(path, FileMode.Open))
                 if (!fs.CanRead)
-                    throw new InvalidOperationException($"LoRA file '{lora}' is not readable");
+                    throw new InvalidOperationException($"LoRA file '{path}' is not readable");
 
-            var err = llama_model_apply_lora_from_file(
-                this,
-                lora,
-                scale,
-                string.IsNullOrEmpty(modelBase) ? null : modelBase,
-                threads ?? Math.Max(1, Environment.ProcessorCount / 2)
-            );
-
-            if (err != 0)
-                throw new RuntimeError($"Failed to apply lora adapter (err={err}).");
+            var ptr = llama_lora_adapter_init(this, path);
+            return new LoraAdapter(this, path, ptr);
         }
         #endregion
 
@@ -736,17 +768,32 @@ namespace LLama.Native
             /// <summary>
             /// Codellama beginning of infill prefix
             /// </summary>
-            public LLamaToken? InfillPrefix => Normalize(llama_token_prefix(_model));
+            public LLamaToken? InfillPrefix => Normalize(llama_token_fim_pre(_model));
 
             /// <summary>
             /// Codellama beginning of infill middle
             /// </summary>
-            public LLamaToken? InfillMiddle => Normalize(llama_token_middle(_model));
+            public LLamaToken? InfillMiddle => Normalize(llama_token_fim_mid(_model));
 
             /// <summary>
             /// Codellama beginning of infill suffix
             /// </summary>
-            public LLamaToken? InfillSuffix => Normalize(llama_token_suffix(_model));
+            public LLamaToken? InfillSuffix => Normalize(llama_token_fim_suf(_model));
+
+            /// <summary>
+            /// Codellama pad
+            /// </summary>
+            public LLamaToken? InfillPad => Normalize(llama_token_fim_pad(_model));
+
+            /// <summary>
+            /// Codellama rep
+            /// </summary>
+            public LLamaToken? InfillRep => Normalize(llama_token_fim_rep(_model));
+
+            /// <summary>
+            /// Codellama rep
+            /// </summary>
+            public LLamaToken? InfillSep => Normalize(llama_token_fim_sep(_model));
 
             /// <summary>
             /// Codellama end of infill middle

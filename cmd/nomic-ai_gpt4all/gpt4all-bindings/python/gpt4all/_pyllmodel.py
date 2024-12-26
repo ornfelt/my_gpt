@@ -3,13 +3,13 @@ from __future__ import annotations
 import ctypes
 import os
 import platform
-import re
 import subprocess
 import sys
+import textwrap
 import threading
 from enum import Enum
 from queue import Queue
-from typing import TYPE_CHECKING, Any, Callable, Generic, Iterable, Literal, NoReturn, TypeVar, overload
+from typing import TYPE_CHECKING, Any, Callable, Generic, Iterable, Iterator, Literal, NoReturn, TypeVar, overload
 
 if sys.version_info >= (3, 9):
     import importlib.resources as importlib_resources
@@ -23,30 +23,75 @@ else:
     from typing import TypedDict
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeAlias
+    from typing_extensions import ParamSpec, TypeAlias
+    T = TypeVar("T")
+    P = ParamSpec("P")
 
 EmbeddingsType = TypeVar('EmbeddingsType', bound='list[Any]')
 
+cuda_found: bool = False
 
-# Find CUDA libraries from the official packages
-cuda_found = False
-if platform.system() in ('Linux', 'Windows'):
+
+# TODO(jared): use operator.call after we drop python 3.10 support
+def _operator_call(obj: Callable[P, T], /, *args: P.args, **kwargs: P.kwargs) -> T:
+    return obj(*args, **kwargs)
+
+
+# Detect Rosetta 2
+@_operator_call
+def check_rosetta() -> None:
+    if platform.system() == "Darwin" and platform.processor() == "i386":
+        p = subprocess.run("sysctl -n sysctl.proc_translated".split(), capture_output=True, text=True)
+        if p.returncode == 0 and p.stdout.strip() == "1":
+            raise RuntimeError(textwrap.dedent("""\
+                Running GPT4All under Rosetta is not supported due to CPU feature requirements.
+                Please install GPT4All in an environment that uses a native ARM64 Python interpreter.
+            """).strip())
+
+
+# Check for C++ runtime libraries
+if platform.system() == "Windows":
     try:
-        from nvidia import cuda_runtime, cublas
-    except ImportError:
-        pass  # CUDA is optional
-    else:
-        if platform.system() == 'Linux':
-            cudalib   = 'lib/libcudart.so.12'
-            cublaslib = 'lib/libcublas.so.12'
+        ctypes.CDLL("msvcp140.dll")
+        ctypes.CDLL("vcruntime140.dll")
+        ctypes.CDLL("vcruntime140_1.dll")
+    except OSError as e:
+        print(textwrap.dedent(f"""\
+            {e!r}
+            The Microsoft Visual C++ runtime libraries were not found. Please install them from
+            https://aka.ms/vs/17/release/vc_redist.x64.exe
+        """), file=sys.stderr)
+
+
+@_operator_call
+def find_cuda() -> None:
+    global cuda_found
+
+    def _load_cuda(rtver: str, blasver: str) -> None:
+        if platform.system() == "Linux":
+            cudalib   = f"lib/libcudart.so.{rtver}"
+            cublaslib = f"lib/libcublas.so.{blasver}"
         else:  # Windows
-            cudalib   = r'bin\cudart64_12.dll'
-            cublaslib = r'bin\cublas64_12.dll'
+            cudalib   = fr"bin\cudart64_{rtver.replace('.', '')}.dll"
+            cublaslib = fr"bin\cublas64_{blasver}.dll"
 
         # preload the CUDA libs so the backend can find them
         ctypes.CDLL(os.path.join(cuda_runtime.__path__[0], cudalib), mode=ctypes.RTLD_GLOBAL)
         ctypes.CDLL(os.path.join(cublas.__path__[0], cublaslib), mode=ctypes.RTLD_GLOBAL)
-        cuda_found = True
+
+    # Find CUDA libraries from the official packages
+    if platform.system() in ("Linux", "Windows"):
+        try:
+            from nvidia import cuda_runtime, cublas
+        except ImportError:
+            pass  # CUDA is optional
+        else:
+            for rtver, blasver in [("12", "12"), ("11.0", "11")]:
+                try:
+                    _load_cuda(rtver, blasver)
+                    cuda_found = True
+                except OSError:  # dlopen() does not give specific error codes
+                    pass  # try the next one
 
 
 # TODO: provide a config file to make this more robust
@@ -73,22 +118,17 @@ llmodel = load_llmodel_library()
 
 class LLModelPromptContext(ctypes.Structure):
     _fields_ = [
-        ("logits", ctypes.POINTER(ctypes.c_float)),
-        ("logits_size", ctypes.c_size_t),
-        ("tokens", ctypes.POINTER(ctypes.c_int32)),
-        ("tokens_size", ctypes.c_size_t),
-        ("n_past", ctypes.c_int32),
-        ("n_ctx", ctypes.c_int32),
-        ("n_predict", ctypes.c_int32),
-        ("top_k", ctypes.c_int32),
-        ("top_p", ctypes.c_float),
-        ("min_p", ctypes.c_float),
-        ("temp", ctypes.c_float),
-        ("n_batch", ctypes.c_int32),
+        ("n_predict",      ctypes.c_int32),
+        ("top_k",          ctypes.c_int32),
+        ("top_p",          ctypes.c_float),
+        ("min_p",          ctypes.c_float),
+        ("temp",           ctypes.c_float),
+        ("n_batch",        ctypes.c_int32),
         ("repeat_penalty", ctypes.c_float),
-        ("repeat_last_n", ctypes.c_int32),
-        ("context_erase", ctypes.c_float),
+        ("repeat_last_n",  ctypes.c_int32),
+        ("context_erase",  ctypes.c_float),
     ]
+
 
 class LLModelGPUDevice(ctypes.Structure):
     _fields_ = [
@@ -99,6 +139,7 @@ class LLModelGPUDevice(ctypes.Structure):
         ("name", ctypes.c_char_p),
         ("vendor", ctypes.c_char_p),
     ]
+
 
 # Define C function signatures using ctypes
 llmodel.llmodel_model_create.argtypes = [ctypes.c_char_p]
@@ -117,24 +158,21 @@ llmodel.llmodel_required_mem.restype = ctypes.c_size_t
 llmodel.llmodel_isModelLoaded.argtypes = [ctypes.c_void_p]
 llmodel.llmodel_isModelLoaded.restype = ctypes.c_bool
 
-PromptCallback = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_int32)
-ResponseCallback = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_int32, ctypes.c_char_p)
-RecalculateCallback = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_bool)
-EmbCancelCallback = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.POINTER(ctypes.c_uint), ctypes.c_uint, ctypes.c_char_p)
+PromptCallback       = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.POINTER(ctypes.c_int32), ctypes.c_size_t, ctypes.c_bool)
+ResponseCallback     = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_int32, ctypes.c_char_p)
+EmbCancelCallback    = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.POINTER(ctypes.c_uint), ctypes.c_uint, ctypes.c_char_p)
+SpecialTokenCallback = ctypes.CFUNCTYPE(None, ctypes.c_char_p, ctypes.c_char_p)
 
 llmodel.llmodel_prompt.argtypes = [
     ctypes.c_void_p,
     ctypes.c_char_p,
-    ctypes.c_char_p,
     PromptCallback,
     ResponseCallback,
-    RecalculateCallback,
     ctypes.POINTER(LLModelPromptContext),
-    ctypes.c_bool,
-    ctypes.c_char_p,
+    ctypes.POINTER(ctypes.c_char_p),
 ]
 
-llmodel.llmodel_prompt.restype = None
+llmodel.llmodel_prompt.restype = ctypes.c_bool
 
 llmodel.llmodel_embed.argtypes = [
     ctypes.c_void_p,
@@ -183,6 +221,12 @@ llmodel.llmodel_model_backend_name.restype = ctypes.c_char_p
 llmodel.llmodel_model_gpu_device_name.argtypes = [ctypes.c_void_p]
 llmodel.llmodel_model_gpu_device_name.restype = ctypes.c_char_p
 
+llmodel.llmodel_count_prompt_tokens.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_char_p)]
+llmodel.llmodel_count_prompt_tokens.restype = ctypes.c_int32
+
+llmodel.llmodel_model_foreach_special_token.argtypes = [ctypes.c_void_p, SpecialTokenCallback]
+llmodel.llmodel_model_foreach_special_token.restype = None
+
 ResponseCallbackType = Callable[[int, str], bool]
 RawResponseCallbackType = Callable[[int, bytes], bool]
 EmbCancelCallbackType: TypeAlias = 'Callable[[list[int], str], bool]'
@@ -227,7 +271,6 @@ class LLModel:
         self.model_path = model_path.encode()
         self.n_ctx = n_ctx
         self.ngl = ngl
-        self.context: LLModelPromptContext | None = None
         self.buffer = bytearray()
         self.buff_expecting_cont_bytes: int = 0
 
@@ -247,6 +290,10 @@ class LLModel:
 
             raise RuntimeError(f"Unable to instantiate model: {errmsg}")
         self.model: ctypes.c_void_p | None = model
+        self.special_tokens_map: dict[str, str] = {}
+        llmodel.llmodel_model_foreach_special_token(
+            self.model, lambda n, t: self.special_tokens_map.__setitem__(n.decode(), t.decode()),
+        )
 
     def __del__(self, llmodel=llmodel):
         if hasattr(self, 'model'):
@@ -272,6 +319,19 @@ class LLModel:
             self._raise_closed()
         dev = llmodel.llmodel_model_gpu_device_name(self.model)
         return None if dev is None else dev.decode()
+
+    def count_prompt_tokens(self, prompt: str) -> int:
+        if self.model is None:
+            self._raise_closed()
+        err = ctypes.c_char_p()
+        n_tok = llmodel.llmodel_count_prompt_tokens(self.model, prompt, ctypes.byref(err))
+        if n_tok < 0:
+            s = err.value
+            errmsg = 'null' if s is None else s.decode()
+            raise RuntimeError(f'Unable to count prompt tokens: {errmsg}')
+        return n_tok
+
+    llmodel.llmodel_count_prompt_tokens.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
 
     @staticmethod
     def list_gpus(mem_required: int = 0) -> list[str]:
@@ -335,51 +395,6 @@ class LLModel:
         if not llmodel.llmodel_isModelLoaded(self.model):
             raise Exception("Model not loaded")
         return llmodel.llmodel_threadCount(self.model)
-
-    def _set_context(
-        self,
-        n_predict: int = 4096,
-        top_k: int = 40,
-        top_p: float = 0.9,
-        min_p: float = 0.0,
-        temp: float = 0.1,
-        n_batch: int = 8,
-        repeat_penalty: float = 1.2,
-        repeat_last_n: int = 10,
-        context_erase: float = 0.75,
-        reset_context: bool = False,
-    ):
-        if self.context is None:
-            context = LLModelPromptContext(
-                logits_size=0,
-                tokens_size=0,
-                n_past=0,
-                n_ctx=0,
-                n_predict=n_predict,
-                top_k=top_k,
-                top_p=top_p,
-                min_p=min_p,
-                temp=temp,
-                n_batch=n_batch,
-                repeat_penalty=repeat_penalty,
-                repeat_last_n=repeat_last_n,
-                context_erase=context_erase,
-            )
-            self.context = context
-        else:
-            context = self.context
-            if reset_context:
-                self.context.n_past = 0
-
-        self.context.n_predict = n_predict
-        self.context.top_k = top_k
-        self.context.top_p = top_p
-        self.context.min_p = min_p
-        self.context.temp = temp
-        self.context.n_batch = n_batch
-        self.context.repeat_penalty = repeat_penalty
-        self.context.repeat_last_n = repeat_last_n
-        self.context.context_erase = context_erase
 
     @overload
     def generate_embeddings(
@@ -450,20 +465,18 @@ class LLModel:
 
     def prompt_model(
         self,
-        prompt: str,
-        prompt_template: str,
-        callback: ResponseCallbackType,
-        n_predict: int = 4096,
-        top_k: int = 40,
-        top_p: float = 0.9,
-        min_p: float = 0.0,
-        temp: float = 0.1,
-        n_batch: int = 8,
-        repeat_penalty: float = 1.2,
-        repeat_last_n: int = 10,
-        context_erase: float = 0.75,
-        reset_context: bool = False,
-        special: bool = False,
+        prompt          : str,
+        callback        : ResponseCallbackType,
+        n_predict       : int                  = 4096,
+        top_k           : int                  = 40,
+        top_p           : float                = 0.9,
+        min_p           : float                = 0.0,
+        temp            : float                = 0.1,
+        n_batch         : int                  = 8,
+        repeat_penalty  : float                = 1.2,
+        repeat_last_n   : int                  = 10,
+        context_erase   : float                = 0.75,
+        reset_context   : bool                 = False,
     ):
         """
         Generate response from model from a prompt.
@@ -486,35 +499,38 @@ class LLModel:
         self.buffer.clear()
         self.buff_expecting_cont_bytes = 0
 
-        self._set_context(
-            n_predict=n_predict,
-            top_k=top_k,
-            top_p=top_p,
-            min_p=min_p,
-            temp=temp,
-            n_batch=n_batch,
-            repeat_penalty=repeat_penalty,
-            repeat_last_n=repeat_last_n,
-            context_erase=context_erase,
-            reset_context=reset_context,
+        context = LLModelPromptContext(
+            n_predict      = n_predict,
+            top_k          = top_k,
+            top_p          = top_p,
+            min_p          = min_p,
+            temp           = temp,
+            n_batch        = n_batch,
+            repeat_penalty = repeat_penalty,
+            repeat_last_n  = repeat_last_n,
+            context_erase  = context_erase,
         )
 
-        llmodel.llmodel_prompt(
+        error_msg: bytes | None = None
+        def error_callback(msg: bytes) -> None:
+            nonlocal error_msg
+            error_msg = msg
+
+        err = ctypes.c_char_p()
+        if not llmodel.llmodel_prompt(
             self.model,
             ctypes.c_char_p(prompt.encode()),
-            ctypes.c_char_p(prompt_template.encode()),
             PromptCallback(self._prompt_callback),
             ResponseCallback(self._callback_decoder(callback)),
-            RecalculateCallback(self._recalculate_callback),
-            self.context,
-            special,
-            ctypes.c_char_p(),
-        )
-
+            context,
+            ctypes.byref(err),
+        ):
+            s = err.value
+            raise RuntimeError(f"prompt error: {'null' if s is None else s.decode()}")
 
     def prompt_model_streaming(
-        self, prompt: str, prompt_template: str, callback: ResponseCallbackType = empty_response_callback, **kwargs
-    ) -> Iterable[str]:
+        self, prompt: str, callback: ResponseCallbackType = empty_response_callback, **kwargs: Any,
+    ) -> Iterator[str]:
         if self.model is None:
             self._raise_closed()
 
@@ -533,15 +549,15 @@ class LLModel:
 
             return _generator_callback
 
-        def run_llmodel_prompt(prompt: str, prompt_template: str, callback: ResponseCallbackType, **kwargs):
-            self.prompt_model(prompt, prompt_template, callback, **kwargs)
+        def run_llmodel_prompt(prompt: str, callback: ResponseCallbackType, **kwargs):
+            self.prompt_model(prompt, callback, **kwargs)
             output_queue.put(Sentinel.TERMINATING_SYMBOL)
 
         # Kick off llmodel_prompt in separate thread so we can return generator
         # immediately
         thread = threading.Thread(
             target=run_llmodel_prompt,
-            args=(prompt, prompt_template, _generator_callback_wrapper(callback)),
+            args=(prompt, _generator_callback_wrapper(callback)),
             kwargs=kwargs,
         )
         thread.start()
@@ -560,16 +576,16 @@ class LLModel:
             decoded = []
 
             for byte in response:
-                
+
                 bits = "{:08b}".format(byte)
                 (high_ones, _, _) = bits.partition('0')
 
-                if len(high_ones) == 1: 
+                if len(high_ones) == 1:
                     # continuation byte
                     self.buffer.append(byte)
                     self.buff_expecting_cont_bytes -= 1
 
-                else: 
+                else:
                     # beginning of a byte sequence
                     if len(self.buffer) > 0:
                         decoded.append(self.buffer.decode(errors='replace'))
@@ -579,27 +595,22 @@ class LLModel:
                     self.buffer.append(byte)
                     self.buff_expecting_cont_bytes = max(0, len(high_ones) - 1)
 
-                if self.buff_expecting_cont_bytes <= 0: 
+                if self.buff_expecting_cont_bytes <= 0:
                     # received the whole sequence or an out of place continuation byte
                     decoded.append(self.buffer.decode(errors='replace'))
 
                     self.buffer.clear()
                     self.buff_expecting_cont_bytes = 0
-                    
+
             if len(decoded) == 0 and self.buff_expecting_cont_bytes > 0:
                 # wait for more continuation bytes
                 return True
-            
-            return callback(token_id, ''.join(decoded))     
+
+            return callback(token_id, ''.join(decoded))
 
         return _raw_callback
 
     # Empty prompt callback
     @staticmethod
-    def _prompt_callback(token_id: int) -> bool:
+    def _prompt_callback(token_ids: ctypes._Pointer[ctypes.c_int32], n_token_ids: int, cached: bool) -> bool:
         return True
-
-    # Empty recalculate callback
-    @staticmethod
-    def _recalculate_callback(is_recalculating: bool) -> bool:
-        return is_recalculating

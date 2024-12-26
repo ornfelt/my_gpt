@@ -10,7 +10,7 @@ import mysettings
 import network
 
 MySettingsTab {
-    onRestoreDefaultsClicked: {
+    onRestoreDefaults: {
         MySettings.restoreLocalDocsDefaults();
     }
 
@@ -70,7 +70,7 @@ MySettingsTab {
                     /* Blacklist common unsupported file extensions. We only support plain text and PDFs, and although we
                      * reject binary data, we don't want to waste time trying to index files that we don't support. */
                     exts = exts.filter(e => ![
-                        /* Microsoft documents  */ "rtf", "docx", "ppt", "pptx", "xls", "xlsx",
+                        /* Microsoft documents  */ "rtf", "ppt", "pptx", "xls", "xlsx",
                         /* OpenOffice           */ "odt", "ods", "odp", "odg",
                         /* photos               */ "jpg", "jpeg", "png", "gif", "bmp", "tif", "tiff", "webp",
                         /* audio                */ "mp3", "wma", "m4a", "wav", "flac",
@@ -163,7 +163,7 @@ MySettingsTab {
             MySettingsLabel {
                 id: deviceLabel
                 text: qsTr("Embeddings Device")
-                helpText: qsTr('The compute device used for embeddings. "Auto" uses the CPU. Requires restart.')
+                helpText: qsTr('The compute device used for embeddings. Requires restart.')
             }
             MyComboBox {
                 id: deviceBox
@@ -172,11 +172,19 @@ MySettingsTab {
                 Layout.maximumWidth: 400
                 Layout.fillWidth: false
                 Layout.alignment: Qt.AlignRight
-                model: MySettings.embeddingsDeviceList
+                model: ListModel {
+                    ListElement { text: qsTr("Application default") }
+                    Component.onCompleted: {
+                        MySettings.embeddingsDeviceList.forEach(d => append({"text": d}));
+                        deviceBox.updateModel();
+                    }
+                }
                 Accessible.name: deviceLabel.text
                 Accessible.description: deviceLabel.helpText
                 function updateModel() {
-                    deviceBox.currentIndex = deviceBox.indexOfValue(MySettings.localDocsEmbedDevice);
+                    var device = MySettings.localDocsEmbedDevice;
+                    // This usage of 'Auto' should not be translated
+                    deviceBox.currentIndex = device === "Auto" ? 0 : deviceBox.indexOfValue(device);
                 }
                 Component.onCompleted: {
                     deviceBox.updateModel();
@@ -188,7 +196,8 @@ MySettingsTab {
                     }
                 }
                 onActivated: {
-                    MySettings.localDocsEmbedDevice = deviceBox.currentText;
+                    // This usage of 'Auto' should not be translated
+                    MySettings.localDocsEmbedDevice = deviceBox.currentIndex === 0 ? "Auto" : deviceBox.currentText;
                 }
             }
         }

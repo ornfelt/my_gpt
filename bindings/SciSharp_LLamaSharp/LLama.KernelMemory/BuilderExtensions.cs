@@ -1,14 +1,7 @@
 using Microsoft.KernelMemory;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using LLama;
 using LLama.Common;
 using Microsoft.KernelMemory.AI;
-using Microsoft.SemanticKernel.AI.Embeddings;
-using LLama.Native;
 
 namespace LLamaSharp.KernelMemory
 {
@@ -27,9 +20,7 @@ namespace LLamaSharp.KernelMemory
         public static IKernelMemoryBuilder WithLLamaSharpTextEmbeddingGeneration(this IKernelMemoryBuilder builder, LLamaSharpConfig config)
         {
             var generator = new LLamaSharpTextEmbeddingGenerator(config);
-            builder.AddSingleton<ITextEmbeddingGenerator>(generator);
-            builder.AddIngestionEmbeddingGenerator(generator);
-            return builder;
+            return builder.WithLLamaSharpTextEmbeddingGeneration(generator);
         }
 
         /// <summary>
@@ -53,8 +44,7 @@ namespace LLamaSharp.KernelMemory
         /// <returns>The KernelMemoryBuilder instance with LLamaSharpTextGeneration added.</returns>
         public static IKernelMemoryBuilder WithLLamaSharpTextGeneration(this IKernelMemoryBuilder builder, LLamaSharpConfig config)
         {
-            builder.AddSingleton<ITextGenerator>(new LlamaSharpTextGenerator(config));
-            return builder;
+            return builder.WithLLamaSharpTextGeneration(new LlamaSharpTextGenerator(config));
         }
 
         /// <summary>
@@ -82,7 +72,6 @@ namespace LLamaSharp.KernelMemory
             var parameters = new ModelParams(config.ModelPath)
             {
                 ContextSize = config.ContextSize ?? 2048,
-                Seed = config.Seed ?? 0,
                 GpuLayerCount = config.GpuLayerCount ?? 20,
                 Embeddings = true,
                 MainGpu = config.MainGpu,
@@ -97,7 +86,7 @@ namespace LLamaSharp.KernelMemory
 
             var executor = new StatelessExecutor(weights, parameters);
             builder.WithLLamaSharpTextEmbeddingGeneration(new LLamaSharpTextEmbeddingGenerator(config, weights));
-            builder.WithLLamaSharpTextGeneration(new LlamaSharpTextGenerator(weights, context, executor, config?.DefaultInferenceParams));
+            builder.WithLLamaSharpTextGeneration(new LlamaSharpTextGenerator(weights, context, executor, config.DefaultInferenceParams));
             return builder;
         }		
     }

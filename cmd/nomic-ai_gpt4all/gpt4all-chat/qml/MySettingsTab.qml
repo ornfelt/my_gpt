@@ -9,8 +9,7 @@ Item {
     property string title: ""
     property Item contentItem: null
     property bool showRestoreDefaultsButton: true
-    property var openFolderDialog
-    signal restoreDefaultsClicked
+    signal restoreDefaults
 
     onContentItemChanged: function() {
         if (contentItem) {
@@ -18,6 +17,13 @@ Item {
             contentItem.anchors.left = contentInner.left;
             contentItem.anchors.right = contentInner.right;
         }
+    }
+
+    ConfirmationDialog {
+        id: restoreDefaultsDialog
+        dialogTitle: qsTr("Restore defaults?")
+        description: qsTr("This page of settings will be reset to the defaults.")
+        onAccepted: root.restoreDefaults()
     }
 
     ScrollView {
@@ -48,6 +54,7 @@ Item {
             Column {
                 id: contentInner
                 Layout.fillWidth: true
+                Layout.maximumWidth: parent.width
             }
 
             Item {
@@ -64,9 +71,7 @@ Item {
                     Accessible.role: Accessible.Button
                     Accessible.name: text
                     Accessible.description: qsTr("Restores settings dialog to a default state")
-                    onClicked: {
-                        root.restoreDefaultsClicked();
-                    }
+                    onClicked: restoreDefaultsDialog.open()
                 }
             }
         }

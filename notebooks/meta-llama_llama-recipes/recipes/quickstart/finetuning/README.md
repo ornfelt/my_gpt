@@ -8,7 +8,7 @@ This folder contains instructions to fine-tune Meta Llama 3 on a
 
 using the canonical [finetuning script](../../../src/llama_recipes/finetuning.py) in the llama-recipes package.
 
-If you are new to fine-tuning techniques, check out an overview: [](./LLM_finetuning_overview.md)
+If you are new to fine-tuning techniques, check out [an overview](./LLM_finetuning_overview.md).
 
 > [!TIP]
 > If you want to try finetuning Meta Llama 3 in a Jupyter notebook you can find a quickstart notebook [here](./quickstart_peft_finetuning.ipynb)
@@ -27,8 +27,8 @@ It lets us specify the training settings for everything from `model_name` to `da
 ```python
     model_name: str="PATH/to/Model"
     tokenizer_name: str=None
-    enable_fsdp: bool=False
-    low_cpu_fsdp: bool=False
+    enable_fsdp: bool=False # shards model parameters, optimizer states and gradients across DDP ranks
+    low_cpu_fsdp: bool=False # saves cpu memory by loading pretrained model on rank0 only
     run_validation: bool=True
     batch_size_training: int=4
     batching_strategy: str="packing" #alternative: padding
@@ -42,18 +42,19 @@ It lets us specify the training settings for everything from `model_name` to `da
     num_workers_dataloader: int=1
     lr: float=1e-4
     weight_decay: float=0.0
-    gamma: float= 0.85
+    gamma: float= 0.85 # multiplicatively decay the learning rate by gamma after each epoch
     seed: int=42
     use_fp16: bool=False
     mixed_precision: bool=True
     val_batch_size: int=1
     dataset = "samsum_dataset"
     peft_method: str = "lora" # None, llama_adapter (Caution: llama_adapter is currently not supported with FSDP)
-    use_peft: bool=False
+    use_peft: bool=False # use parameter efficient fine tuning
     from_peft_checkpoint: str="" # if not empty and use_peft=True, will load the peft checkpoint and resume the fine-tuning on that checkpoint
     output_dir: str = "PATH/to/save/PEFT/model"
     freeze_layers: bool = False
     num_freeze_layers: int = 1
+    freeze_LLM_only: bool = False # Freeze self-attention layers in the language_model. Vision model, multi_modal_projector, cross-attention will be fine-tuned
     quantization: str = None
     one_gpu: bool = False
     save_model: bool = True

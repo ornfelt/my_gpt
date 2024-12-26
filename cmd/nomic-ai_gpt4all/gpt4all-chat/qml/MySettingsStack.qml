@@ -2,6 +2,7 @@ import QtCore
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Basic
+import QtQuick.Controls.impl
 import QtQuick.Layouts
 import QtQuick.Dialogs
 import Qt.labs.folderlistmodel
@@ -61,17 +62,6 @@ Item {
         color: theme.settingsDivider
     }
 
-    FolderDialog {
-        id: folderDialog
-        title: qsTr("Please choose a directory")
-    }
-
-    function openFolderDialog(currentFolder, onAccepted) {
-        folderDialog.currentFolder = currentFolder;
-        folderDialog.accepted.connect(function() { onAccepted(folderDialog.selectedFolder); });
-        folderDialog.open();
-    }
-
     StackLayout {
         id: stackLayout
         anchors.top: tabTitlesModel.count > 1 ? dividerTabBar.bottom : parent.top
@@ -88,7 +78,6 @@ Item {
                 sourceComponent: model.modelData
                 onLoaded: {
                     settingsStack.tabTitlesModel.append({ "title": loader.item.title });
-                    item.openFolderDialog = settingsStack.openFolderDialog;
                 }
             }
         }

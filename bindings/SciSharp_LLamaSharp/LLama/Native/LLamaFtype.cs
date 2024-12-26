@@ -3,6 +3,7 @@ namespace LLama.Native
     /// <summary>
     /// Supported model file types
     /// </summary>
+    /// <remarks>C# representation of llama_ftype</remarks>
     public enum LLamaFtype
     {
         /// <summary>
@@ -35,10 +36,10 @@ namespace LLama.Native
         /// <remarks>Benchmark@7B: 3.90GB, +0.1846 ppl</remarks>
         MOSTLY_Q4_1 = 3,
 
-        /// <summary>
-        /// Mostly 4 bit, tok_embeddings.weight and output.weight are f16
-        /// </summary>
-        MOSTLY_Q4_1_SOME_F16 = 4,
+        ///// <summary>
+        ///// Mostly 4 bit, tok_embeddings.weight and output.weight are f16
+        ///// </summary>
+        //MOSTLY_Q4_1_SOME_F16 = 4,
 
         /// <summary>
         /// Mostly 5 bit
@@ -190,6 +191,16 @@ namespace LLama.Native
         /// except 1d tensors
         /// </summary>
         MOSTLY_Q4_0_8_8 = 35,
+
+        /// <summary>
+        /// except 1d tensors
+        /// </summary>
+        LLAMA_FTYPE_MOSTLY_TQ1_0 = 36,
+
+        /// <summary>
+        /// except 1d tensors
+        /// </summary>
+        LLAMA_FTYPE_MOSTLY_TQ2_0 = 37,
 
         /// <summary>
         /// File type was not specified

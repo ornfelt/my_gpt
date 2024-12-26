@@ -1,190 +1,260 @@
-from score import *
-from src.main import *
-import logging
-from src.QA_integration_new import QA_RAG
-from langserve import add_routes
+import json
 import asyncio
 import os
+import shutil
+import logging
+import pandas as pd
+from datetime import datetime as dt
+from dotenv import load_dotenv
+# from score import *
+from src.main import *
+from src.QA_integration import QA_RAG
+from langserve import add_routes
+from src.ragas_eval import get_ragas_metrics
+from datasets import Dataset
+from ragas import evaluate
+# from ragas.metrics import answer_relevancy, context_utilization, faithfulness
+# from ragas.dataset_schema import SingleTurnSample
+# Load environment variables if needed
+load_dotenv()
+import os 
+URI = os.getenv('NEO4J_URI')
+USERNAME = os.getenv('NEO4J_USERNAME')
+PASSWORD = os.getenv('NEO4J_PASSWORD')
+DATABASE = os.getenv('NEO4J_DATABASE')
 
-
-uri =''
-userName =''
-password =''
-model ='OpenAI GPT 3.5'
-database =''
 CHUNK_DIR = os.path.join(os.path.dirname(__file__), "chunks")
 MERGED_DIR = os.path.join(os.path.dirname(__file__), "merged_files")
-graph = create_graph_database_connection(uri, userName, password, database)
 
-def test_graph_from_file_local_file():
-    file_name = 'About Amazon.pdf'
-    #shutil.copyfile('data/Bank of America Q23.pdf', 'backend/src/merged_files/Bank of America Q23.pdf')
-    shutil.copyfile('/workspaces/llm-graph-builder/data/About Amazon.pdf', '/workspaces/llm-graph-builder/backend/merged_files/About Amazon.pdf')
-    obj_source_node = sourceNode()
-    obj_source_node.file_name = file_name
-    obj_source_node.file_type = 'pdf'
-    obj_source_node.file_size = '1087'
-    obj_source_node.file_source = 'local file'
-    obj_source_node.model = model
-    obj_source_node.created_at = datetime.now()
-    graphDb_data_Access = graphDBdataAccess(graph)
-    graphDb_data_Access.create_source_node(obj_source_node)
-    merged_file_path = os.path.join(MERGED_DIR,file_name)
+# Initialize database connection
+graph = create_graph_database_connection(URI,USERNAME,PASSWORD,DATABASE)
 
-    local_file_result =  extract_graph_from_file_local_file(graph, model, file_name,merged_file_path, '', '')
+def create_source_node_local(graph, model, file_name):
+   """Creates a source node for a local file."""
+   source_node = sourceNode()
+   source_node.file_name = file_name
+   source_node.file_type = 'pdf'
+   source_node.file_size = '1087'
+   source_node.file_source = 'local file'
+   source_node.model = model
+   source_node.created_at = dt.now()
+   graphDB_data_Access = graphDBdataAccess(graph)
+   graphDB_data_Access.create_source_node(source_node)
+   return source_node
 
-    print(local_file_result)
-    
-    logging.info("Info:  ")
+def delete_extracted_files(file_path):
+    """Delete the extracted files once extraction process is completed"""
     try:
-        assert local_file_result['status'] == 'Completed' and local_file_result['nodeCount']>5 and local_file_result['relationshipCount']>10
-        print("Success")
-    except AssertionError as e:
-        print("Fail: ", e)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            logging.info(f"Deleted file:{file_path}")
+        else:
+            logging.warning(f"File not found for deletion: {file_path}")
+    except Exception as e:
+        logging.error(f"Failed to delete file {file_path}. Error: {e}")
 
-def test_graph_from_file_local_file_failed():
-    file_name = 'Not_exist.pdf'
+def test_graph_from_file_local(model_name):
+    """Test graph creation from a local file."""
     try:
-        obj_source_node = sourceNode()
-        obj_source_node.file_name = file_name
-        obj_source_node.file_type = 'pdf'
-        obj_source_node.file_size = '0'
-        obj_source_node.file_source = 'local file'
-        obj_source_node.model = model
-        obj_source_node.created_at = datetime.now()
-        graphDb_data_Access = graphDBdataAccess(graph)
-        graphDb_data_Access.create_source_node(obj_source_node)
-
-        local_file_result =  extract_graph_from_file_local_file(graph, model, file_name,merged_file_path, '', '')
-
+        file_name = 'About Amazon.pdf'
+        shutil.copyfile('/workspaces/llm-graph-builder/backend/files/About Amazon.pdf',os.path.join(MERGED_DIR, file_name))
+        create_source_node_local(graph, model_name, file_name)
+        merged_file_path = os.path.join(MERGED_DIR, file_name)
+        local_file_result = asyncio.run(extract_graph_from_file_local_file(URI, USERNAME, PASSWORD, DATABASE, model_name, merged_file_path, file_name, '', '',None))
+        logging.info("Local file processing complete")
         print(local_file_result)
-    except AssertionError as e:
-        print('Failed due to file does not exist means not uploaded or accidentaly deleteled from server')
-        print("Failed: Error from extract function ", e)
+        return local_file_result
+    except Exception as e:
+        logging.error(f"Failed to delete file. Error: {e}")
 
-#   Check for Wikipedia file to be success
-def test_graph_from_Wikipedia():
-    wiki_query = 'Norway'
-    source_type = 'Wikipedia'
-    create_source_node_graph_url_wikipedia(graph, model, wiki_query, source_type)
-    wikiresult = extract_graph_from_file_Wikipedia(graph, model, wiki_query, 1, '', '')
-    logging.info("Info: Wikipedia test done")
-    print(wikiresult)
+#    try:
+#        assert local_file_result['status'] == 'Completed'
+#        assert local_file_result['nodeCount'] > 0
+#        assert local_file_result['relationshipCount'] > 0
+#        print("Success")
+#    except AssertionError as e:
+#        print("Fail: ", e)
+
+    # Delete the file after processing
+#    delete_extracted_fiKles(merged_file_path)
+
+   #return local_file_result
+
+def test_graph_from_wikipedia(model_name):
     try:
-        assert wikiresult['status'] == 'Completed' and wikiresult['nodeCount']>10 and wikiresult['relationshipCount']>15
-        print("Success")
-    except AssertionError as e:
-        print("Fail ", e)
+       """Test graph creation from a Wikipedia page."""
+       wiki_query = 'https://en.wikipedia.org/wiki/Apollo_program'
+       source_type = 'Wikipedia'
+       file_name = "Apollo_program"
+       create_source_node_graph_url_wikipedia(graph, model_name, wiki_query, source_type)
 
-def test_graph_from_Wikipedia_failed():
-    wiki_query = 'Test QA 123456'
-    source_type = 'Wikipedia'
+       wiki_result = asyncio.run(extract_graph_from_file_Wikipedia(URI, USERNAME, PASSWORD, DATABASE, model_name, wiki_query, 'en',file_name, '', '',None))
+       logging.info("Wikipedia test done")
+       print(wiki_result)
+    #    try:
+    #        assert wiki_result['status'] == 'Completed'
+    #        assert wiki_result['nodeCount'] > 0
+    #        assert wiki_result['relationshipCount'] > 0
+    #        print("Success")
+    #    except AssertionError as e:
+    #        print("Fail: ", e)
+  
+       return wiki_result
+    except Exception as ex:
+        print('Hello error herte')
+        print(ex)
+
+def test_graph_website(model_name):
+    """Test graph creation from a Website page."""
+     #graph, model, source_url, source_type
+    source_url = 'https://www.cloudskillsboost.google/'
+    source_type = 'web-url'
+    file_name = 'Google Cloud Skills Boost'
+    # file_name = []
+    create_source_node_graph_web_url(graph, model_name, source_url, source_type)
+
+    weburl_result = asyncio.run(extract_graph_from_web_page(URI, USERNAME, PASSWORD, DATABASE, model_name, source_url,file_name, '', '',None))
+    logging.info("WebUrl test done")
+    print(weburl_result)
+
+    # try:
+    #     assert weburl_result['status'] == 'Completed'
+    #     assert weburl_result['nodeCount'] > 0
+    #     assert weburl_result['relationshipCount'] > 0
+    #     print("Success")
+    # except AssertionError as e:
+    #     print("Fail: ", e)
+    return weburl_result
+
+def test_graph_from_youtube_video(model_name):
+   """Test graph creation from a YouTube video."""
+   source_url = 'https://www.youtube.com/watch?v=T-qy-zPWgqA'
+   file_name = 'NKc8Tr5_L3w'
+   source_type = 'youtube'
+   create_source_node_graph_url_youtube(graph, model_name, source_url, source_type)
+   youtube_result = asyncio.run(extract_graph_from_file_youtube(URI, USERNAME, PASSWORD, DATABASE, model_name, source_url,file_name,'','',None))
+   logging.info("YouTube Video test done")
+   print(youtube_result)
+
+#    try:
+#        assert youtube_result['status'] == 'Completed'
+#        assert youtube_result['nodeCount'] > 1
+#        assert youtube_result['relationshipCount'] > 1
+#        print("Success")
+#    except AssertionError as e:
+#        print("Failed: ", e)
+
+   return youtube_result
+
+def test_chatbot_qna(model_name, mode='vector'):
+   """Test chatbot QnA functionality for different modes."""
+   QA_n_RAG = QA_RAG(graph, model_name, 'Tell me about amazon', '[]', 1, mode)
+   print(QA_n_RAG)
+   print(len(QA_n_RAG['message']))
+
+
+   try:
+       assert len(QA_n_RAG['message']) > 20
+       return QA_n_RAG
+       print("Success")
+   except AssertionError as e:
+       print("Failed ", e)
+       return QA_n_RAG
+  
+#Get Test disconnected_nodes list
+def disconected_nodes():
+   #graph = create_graph_database_connection(uri, userName, password, database)
+   graphDb_data_Access = graphDBdataAccess(graph)
+   nodes_list, total_nodes = graphDb_data_Access.list_unconnected_nodes()
+   print(nodes_list[0]["e"]["elementId"])
+   status = "False"
+   if total_nodes['total']>0:
+       status = "get_unconnected_nodes_list.. records loaded successfully"
+   else:
+       status = "get_unconnected_nodes_list ..records not loaded"
+   return nodes_list[0]["e"]["elementId"], status
+  
+#Test Delete delete_disconnected_nodes list
+def delete_disconected_nodes(lst_element_id):
+   print(f'disconnect elementid list {lst_element_id}')
+   #graph = create_graph_database_connection(uri, userName, password, database)
+   graphDb_data_Access = graphDBdataAccess(graph)
+   result = graphDb_data_Access.delete_unconnected_nodes(json.dumps(lst_element_id))
+   print(f'delete disconnect api result {result}')
+   if not result:
+       return "delete_unconnected_nodes..Succesfully deleted first index of disconnected nodes"
+   else:
+       return "delete_unconnected_nodes..Unable to delete Nodes"
+
+#Test Get Duplicate_nodes
+def get_duplicate_nodes():
+       #graph = create_graph_database_connection(uri, userName, password, database)
+       graphDb_data_Access = graphDBdataAccess(graph)
+       nodes_list, total_nodes = graphDb_data_Access.get_duplicate_nodes_list()
+       if total_nodes['total']>0:
+           return "Data successfully loaded"
+       else:
+           return "Unable to load data"
+      
+#Test populate_graph_schema
+def test_populate_graph_schema_from_text(model_name):
+    schema_text =('Amazon was founded on July 5, 1994, by Jeff Bezos in Bellevue, Washington.The company originally started as an online marketplace for books but gradually expanded its offerings to include a wide range of product categories. This diversification led to it being referred.')
+    #result_schema=''
     try:
-        logging.info("Created source node for wikipedia")
-        create_source_node_graph_url_wikipedia(graph, model, wiki_query, source_type)
-    except AssertionError as e:
-        print("Fail ", e)
+        result_schema = populate_graph_schema_from_text(schema_text, model_name, True)
+        print(result_schema)
+        return result_schema
+    except Exception as e:
+       print("Failed to get schema from text", e)
+       return e
 
+def run_tests():
+   final_list = []
+   error_list = []
+   
+   models = ['openai_gpt_4','openai_gpt_4o','openai_gpt_4o_mini','gemini_1.5_pro','gemini_1.5_flash']
 
-# Check for Youtube_video to be Success
-def test_graph_from_youtube_video():
-    url = 'https://www.youtube.com/watch?v=T-qy-zPWgqA'
-    source_type = 'youtube'
+   for model_name in models:
+       try:
+                final_list.append(test_graph_from_file_local(model_name))
+                final_list.append(test_graph_from_wikipedia(model_name))
+                final_list.append(test_graph_website(model_name))
+                final_list.append(test_populate_graph_schema_from_text(model_name))
+                final_list.append(test_graph_from_youtube_video(model_name))
+                final_list.append(test_chatbot_qna(model_name))
+                final_list.append(test_chatbot_qna(model_name, mode='vector'))
+                final_list.append(test_chatbot_qna(model_name, mode='graph+vector'))
+                final_list.append(test_chatbot_qna(model_name, mode='fulltext'))
+                final_list.append(test_chatbot_qna(model_name, mode='graph+vector+fulltext'))
+                final_list.append(test_chatbot_qna(model_name, mode='entity search+vector'))
+                
+       except Exception as e:
+           error_list.append((model_name, str(e)))
 
-    create_source_node_graph_url_youtube(graph, model,url , source_type)
-    youtuberesult = extract_graph_from_file_youtube(graph, model, url, '', '')
+#    test_populate_graph_schema_from_text('openai-gpt-4o')
+#delete diconnected nodes
+   dis_elementid, dis_status = disconected_nodes()
+   lst_element_id = [dis_elementid]
+   delt = delete_disconected_nodes(lst_element_id)
+   dup = get_duplicate_nodes()
+   print(final_list)
+   schma = test_populate_graph_schema_from_text(model_name)
+   # Save final results to CSV
+   df = pd.DataFrame(final_list)
+   print(df)
+   df['execution_date'] = dt.today().strftime('%Y-%m-%d')
+#diconnected nodes   
+   df['disconnected_nodes']=dis_status
+   df['get_duplicate_nodes']=dup
 
-    logging.info("Info: Youtube Video test done")
-    print(youtuberesult)
-    try:
-        assert youtuberesult['status'] == 'Completed' and youtuberesult['nodeCount']>60 and youtuberesult['relationshipCount']>40
-        print("Success")
-    except AssertionError as e:
-        print("Failed ", e)
-    
-# Check for Youtube_video to be Failed
+   df['delete_disconected_nodes']=delt
+   df['test_populate_graph_schema_from_text'] = schma
+   df.to_csv(f"Integration_TestResult_{dt.now().strftime('%Y%m%d_%H%M%S')}.csv", index=False)
 
-def test_graph_from_youtube_video_failed():
-    url = 'https://www.youtube.com/watch?v=U9mJuUkhUzk'
-    source_type = 'youtube'
-
-    create_source_node_graph_url_youtube(graph, model,url , source_type)
-    youtuberesult = extract_graph_from_file_youtube(graph, model, url, ',', ',')
-    # print(result)
-    print(youtuberesult)
-    try:
-        assert youtuberesult['status'] == 'Completed'
-        print("Success")
-    except AssertionError as e:
-        print("Failed ", e)
-    
-# Check for the GCS file to be uploaded, process and completed
-
-def test_graph_from_file_test_gcs():
-
-    bucket_name = 'llm_graph_transformer_test'
-    folder_name = 'technology'
-    source_type ='gcs bucket'
-    file_name = 'Neuralink brain chip patient playing chess.pdf'
-    create_source_node_graph_url_gcs(graph, model, bucket_name, folder_name, source_type)
-    gcsresult = extract_graph_from_file_gcs(graph, model, bucket_name, folder_name, file_name, '', '')
-    
-    logging.info("Info")
-    print(gcsresult)
-    
-    try:
-        assert gcsresult['status'] == 'Completed' and gcsresult['nodeCount']>10 and gcsresult['relationshipCount']>5
-        print("Success")
-    except AssertionError as e:
-        print("Failed ", e)
-
-def test_graph_from_file_test_gcs_failed():
-
-    bucket_name = 'llm_graph_transformer_neo'
-    folder_name = 'technology'
-    source_type ='gcs bucket'
-    # file_name = 'Neuralink brain chip patient playing chess.pdf'
-    try:
-        create_source_node_graph_url_gcs(graph, model, bucket_name, folder_name, source_type)
-        print("GCS: Create source node failed due to bucket not exist")
-    except AssertionError as e:
-        print("Failed ", e)
-
-def test_graph_from_file_test_s3_failed():
-    source_url = 's3://development-llm-graph-builder-models/'
-    try:
-        create_source_node_graph_url_s3(graph,model,source_url,'test123','pwd123')
-        # assert result['status'] == 'Failed'
-        # print("S3 created source node failed die to wrong access key id and secret")
-    except AssertionError as e:
-        print("Failed ", e)
-
-# Check the Functionality of Chatbot QnA
-def test_chatbot_QnA():
-    QA_n_RAG = QA_RAG(graph, model,'who is patrick pichette',1 )
-    
-    print(QA_n_RAG)
-    print(len(QA_n_RAG['message']))
-    try:
-        assert len(QA_n_RAG['message']) > 20
-        print("Success")
-    except AssertionError as e:
-        print("Failed ", e)
-
+   # Save error details to CSV
+   df_errors = pd.DataFrame(error_list, columns=['Model', 'Error'])
+   df_errors['execution_date'] = dt.today().strftime('%Y-%m-%d')
+   df_errors.to_csv(f"Error_details_{dt.now().strftime('%Y%m%d_%H%M%S')}.csv", index=False)
 
 if __name__ == "__main__":
-
-            test_graph_from_file_local_file() # local file Success Test Case
-            #test_graph_from_file_local_file_failed() # local file Failed Test Case
-
-            test_graph_from_Wikipedia() # Wikipedia Success Test Case
-            #test_graph_from_Wikipedia_failed() # Wikipedia Failed Test Case
-
-            test_graph_from_youtube_video() # Youtube Success Test Case
-            #test_graph_from_youtube_video_failed # Failed Test case
-
-            test_graph_from_file_test_gcs() # GCS Success Test Case
-            test_chatbot_QnA()
-
-            #test_graph_from_file_test_s3_failed() # S3 Failed Test Case
-            
+   run_tests()

@@ -32,7 +32,6 @@ public final class ModelParameters extends JsonParameters {
 	private static final String PARAM_SPLIT_MODE = "split_mode";
 	private static final String PARAM_MAIN_GPU = "main_gpu";
 	private static final String PARAM_TENSOR_SPLIT = "tensor_split";
-	private static final String PARAM_N_BEAMS = "n_beams";
 	private static final String PARAM_GRP_ATTN_N = "grp_attn_n";
 	private static final String PARAM_GRP_ATTN_W = "grp_attn_w";
 	private static final String PARAM_ROPE_FREQ_BASE = "rope_freq_base";
@@ -55,7 +54,6 @@ public final class ModelParameters extends JsonParameters {
 	private static final String PARAM_LOOKUP_CACHE_STATIC = "lookup_cache_static";
 	private static final String PARAM_LOOKUP_CACHE_DYNAMIC = "lookup_cache_dynamic";
 	private static final String PARAM_LORA_ADAPTER = "lora_adapter";
-	private static final String PARAM_LORA_BASE = "lora_base";
 	private static final String PARAM_EMBEDDING = "embedding";
 	private static final String PARAM_CONT_BATCHING = "cont_batching";
 	private static final String PARAM_FLASH_ATTENTION = "flash_attn";
@@ -241,14 +239,6 @@ public final class ModelParameters extends JsonParameters {
 			builder.append("]");
 			parameters.put(PARAM_TENSOR_SPLIT, builder.toString());
 		}
-		return this;
-	}
-
-	/**
-	 * Set usage of beam search of given width if non-zero.
-	 */
-	public ModelParameters setNBeams(int nBeams) {
-		parameters.put(PARAM_N_BEAMS, String.valueOf(nBeams));
 		return this;
 	}
 
@@ -481,14 +471,6 @@ public final class ModelParameters extends JsonParameters {
 			builder.append("}");
 			parameters.put(PARAM_LORA_ADAPTER, builder.toString());
 		}
-		return this;
-	}
-
-	/**
-	 * Set an optional model to use as a base for the layers modified by the LoRA adapter
-	 */
-	public ModelParameters setLoraBase(String loraBase) {
-		parameters.put(PARAM_LORA_BASE, toJsonString(loraBase));
 		return this;
 	}
 

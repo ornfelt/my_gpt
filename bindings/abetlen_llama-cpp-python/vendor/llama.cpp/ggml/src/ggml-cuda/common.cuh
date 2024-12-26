@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <memory>
 
-#if defined(GGML_USE_HIPBLAS)
+#if defined(GGML_USE_HIP)
 #define GGML_COMMON_DECL_HIP
 #define GGML_COMMON_IMPL_HIP
 #else
@@ -26,257 +26,13 @@
 #include <string>
 #include <vector>
 
-#if defined(GGML_USE_HIPBLAS)
-#include <hip/hip_runtime.h>
-#include <hipblas/hipblas.h>
-#include <hip/hip_fp16.h>
-#ifdef __HIP_PLATFORM_AMD__
-// for rocblas_initialize()
-#include "rocblas/rocblas.h"
-#endif // __HIP_PLATFORM_AMD__
-#define CUBLAS_COMPUTE_16F HIPBLAS_R_16F
-#define CUBLAS_COMPUTE_32F HIPBLAS_R_32F
-#define CUBLAS_COMPUTE_32F_FAST_16F HIPBLAS_R_32F
-#define CUBLAS_GEMM_DEFAULT HIPBLAS_GEMM_DEFAULT
-#define CUBLAS_GEMM_DEFAULT_TENSOR_OP HIPBLAS_GEMM_DEFAULT
-#define CUBLAS_OP_N HIPBLAS_OP_N
-#define CUBLAS_OP_T HIPBLAS_OP_T
-#define CUBLAS_STATUS_SUCCESS HIPBLAS_STATUS_SUCCESS
-#define CUBLAS_TF32_TENSOR_OP_MATH 0
-#define CUDA_R_16F  HIPBLAS_R_16F
-#define CUDA_R_32F  HIPBLAS_R_32F
-#define __shfl_xor_sync(mask, var, laneMask, width) __shfl_xor(var, laneMask, width)
-#define cublasComputeType_t hipblasDatatype_t //deprecated, new hipblasComputeType_t not in 5.6
-#define cublasCreate hipblasCreate
-#define cublasDestroy hipblasDestroy
-#define cublasGemmEx hipblasGemmEx
-#define cublasGemmBatchedEx hipblasGemmBatchedEx
-#define cublasGemmStridedBatchedEx hipblasGemmStridedBatchedEx
-#define cublasHandle_t hipblasHandle_t
-#define cublasSetMathMode(handle, mode) CUBLAS_STATUS_SUCCESS
-#define cublasSetStream hipblasSetStream
-#define cublasSgemm hipblasSgemm
-#define cublasStatus_t hipblasStatus_t
-#define cudaDataType_t hipblasDatatype_t //deprecated, new hipblasDatatype not in 5.6
-#define cudaDeviceCanAccessPeer hipDeviceCanAccessPeer
-#define cudaDeviceDisablePeerAccess hipDeviceDisablePeerAccess
-#define cudaDeviceEnablePeerAccess hipDeviceEnablePeerAccess
-#define cudaDeviceProp hipDeviceProp_t
-#define cudaDeviceSynchronize hipDeviceSynchronize
-#define cudaError_t hipError_t
-#define cudaErrorPeerAccessAlreadyEnabled hipErrorPeerAccessAlreadyEnabled
-#define cudaErrorPeerAccessNotEnabled hipErrorPeerAccessNotEnabled
-#define cudaEventCreateWithFlags hipEventCreateWithFlags
-#define cudaEventDisableTiming hipEventDisableTiming
-#define cudaEventRecord hipEventRecord
-#define cudaEventSynchronize hipEventSynchronize
-#define cudaEvent_t hipEvent_t
-#define cudaEventDestroy hipEventDestroy
-#define cudaFree hipFree
-#define cudaFreeHost hipHostFree
-#define cudaGetDevice hipGetDevice
-#define cudaGetDeviceCount hipGetDeviceCount
-#define cudaGetDeviceProperties hipGetDeviceProperties
-#define cudaGetErrorString hipGetErrorString
-#define cudaGetLastError hipGetLastError
-#define cudaHostRegister hipHostRegister
-#define cudaHostRegisterPortable hipHostRegisterPortable
-#define cudaHostRegisterReadOnly hipHostRegisterReadOnly
-#define cudaHostUnregister hipHostUnregister
-#define cudaLaunchHostFunc hipLaunchHostFunc
-#define cudaMalloc hipMalloc
-#define cudaMallocHost(ptr, size) hipHostMalloc(ptr, size, hipHostMallocDefault)
-#define cudaMemcpy hipMemcpy
-#define cudaMemcpyAsync hipMemcpyAsync
-#define cudaMemcpyPeerAsync hipMemcpyPeerAsync
-#define cudaMemcpy2DAsync hipMemcpy2DAsync
-#define cudaMemcpyDeviceToDevice hipMemcpyDeviceToDevice
-#define cudaMemcpyDeviceToHost hipMemcpyDeviceToHost
-#define cudaMemcpyHostToDevice hipMemcpyHostToDevice
-#define cudaMemcpyKind hipMemcpyKind
-#define cudaMemset hipMemset
-#define cudaMemsetAsync hipMemsetAsync
-#define cudaMemGetInfo hipMemGetInfo
-#define cudaOccupancyMaxPotentialBlockSize hipOccupancyMaxPotentialBlockSize
-#define cudaSetDevice hipSetDevice
-#define cudaStreamCreateWithFlags hipStreamCreateWithFlags
-#define cudaStreamDestroy hipStreamDestroy
-#define cudaStreamFireAndForget hipStreamFireAndForget
-#define cudaStreamNonBlocking hipStreamNonBlocking
-#define cudaStreamPerThread hipStreamPerThread
-#define cudaStreamSynchronize hipStreamSynchronize
-#define cudaStreamWaitEvent(stream, event, flags) hipStreamWaitEvent(stream, event, flags)
-#define cudaStream_t hipStream_t
-#define cudaSuccess hipSuccess
-#define __trap() do { abort(); __builtin_unreachable(); } while(0)
-#define CUBLAS_STATUS_SUCCESS HIPBLAS_STATUS_SUCCESS
-#define CUBLAS_STATUS_NOT_INITIALIZED HIPBLAS_STATUS_NOT_INITIALIZED
-#define CUBLAS_STATUS_ALLOC_FAILED HIPBLAS_STATUS_ALLOC_FAILED
-#define CUBLAS_STATUS_INVALID_VALUE HIPBLAS_STATUS_INVALID_VALUE
-#define CUBLAS_STATUS_ARCH_MISMATCH HIPBLAS_STATUS_ARCH_MISMATCH
-#define CUBLAS_STATUS_MAPPING_ERROR HIPBLAS_STATUS_MAPPING_ERROR
-#define CUBLAS_STATUS_EXECUTION_FAILED HIPBLAS_STATUS_EXECUTION_FAILED
-#define CUBLAS_STATUS_INTERNAL_ERROR HIPBLAS_STATUS_INTERNAL_ERROR
-#define CUBLAS_STATUS_NOT_SUPPORTED HIPBLAS_STATUS_NOT_SUPPORTED
+#if defined(GGML_USE_HIP)
+#include "vendors/hip.h"
 #elif defined(GGML_USE_MUSA)
-#include <musa_runtime.h>
-#include <musa.h>
-#include <mublas.h>
-#include <musa_fp16.h>
-// XXX: Keep the following order the same as hipBLAS
-// #define CUBLAS_COMPUTE_16F MUBLAS_COMPUTE_16F
-// #define CUBLAS_COMPUTE_32F MUBLAS_COMPUTE_32F
-#define CUBLAS_COMPUTE_32F_FAST_16F MUBLAS_COMPUTE_32F_FAST_16F
-#define CUBLAS_GEMM_DEFAULT MUBLAS_GEMM_DEFAULT
-#define CUBLAS_GEMM_DEFAULT_TENSOR_OP MUBLAS_GEMM_DEFAULT
-#define CUBLAS_OP_N MUBLAS_OP_N
-#define CUBLAS_OP_T MUBLAS_OP_T
-#define CUBLAS_STATUS_SUCCESS MUBLAS_STATUS_SUCCESS
-// #define CUBLAS_TF32_TENSOR_OP_MATH 0
-#define CUDA_R_16F  MUSA_R_16F
-#define CUDA_R_32F  MUSA_R_32F
-// #define __shfl_xor_sync(mask, var, laneMask, width) __shfl_xor(var, laneMask, width)
-// #define cublasComputeType_t mublasComputeType_t
-#define cublasCreate mublasCreate
-#define cublasDestroy mublasDestroy
-#define cublasGemmEx mublasGemmEx
-#define cublasGemmBatchedEx mublasGemmBatchedEx
-#define cublasGemmStridedBatchedEx mublasGemmStridedBatchedEx
-#define cublasHandle_t mublasHandle_t
-// #define cublasSetMathMode(handle, mode) CUBLAS_STATUS_SUCCESS
-#define cublasSetMathMode mublasSetMathMode
-#define cublasSetStream mublasSetStream
-#define cublasSgemm mublasSgemm
-#define cublasStatus_t mublasStatus_t
-#define cudaDataType_t musaDataType_t //deprecated, new hipblasDatatype not in 5.6
-#define cudaDeviceCanAccessPeer musaDeviceCanAccessPeer
-#define cudaDeviceDisablePeerAccess musaDeviceDisablePeerAccess
-#define cudaDeviceEnablePeerAccess musaDeviceEnablePeerAccess
-#define cudaDeviceProp musaDeviceProp
-#define cudaDeviceSynchronize musaDeviceSynchronize
-#define cudaError_t musaError_t
-#define cudaErrorPeerAccessAlreadyEnabled musaErrorPeerAccessAlreadyEnabled
-#define cudaErrorPeerAccessNotEnabled musaErrorPeerAccessNotEnabled
-#define cudaEventCreateWithFlags musaEventCreateWithFlags
-#define cudaEventDisableTiming musaEventDisableTiming
-#define cudaEventRecord musaEventRecord
-#define cudaEventSynchronize musaEventSynchronize
-#define cudaEvent_t musaEvent_t
-#define cudaEventDestroy musaEventDestroy
-#define cudaFree musaFree
-#define cudaFreeHost musaFreeHost
-#define cudaGetDevice musaGetDevice
-#define cudaGetDeviceCount musaGetDeviceCount
-#define cudaGetDeviceProperties musaGetDeviceProperties
-#define cudaGetErrorString musaGetErrorString
-#define cudaGetLastError musaGetLastError
-#define cudaHostRegister musaHostRegister
-#define cudaHostRegisterPortable musaHostRegisterPortable
-#define cudaHostRegisterReadOnly musaHostRegisterReadOnly
-#define cudaHostUnregister musaHostUnregister
-#define cudaLaunchHostFunc musaLaunchHostFunc
-#define cudaMalloc musaMalloc
-#define cudaMallocHost musaMallocHost
-#define cudaMemcpy musaMemcpy
-#define cudaMemcpyAsync musaMemcpyAsync
-#define cudaMemcpyPeerAsync musaMemcpyPeerAsync
-#define cudaMemcpy2DAsync musaMemcpy2DAsync
-#define cudaMemcpyDeviceToDevice musaMemcpyDeviceToDevice
-#define cudaMemcpyDeviceToHost musaMemcpyDeviceToHost
-#define cudaMemcpyHostToDevice musaMemcpyHostToDevice
-#define cudaMemcpyKind musaMemcpyKind
-#define cudaMemset musaMemset
-#define cudaMemsetAsync musaMemsetAsync
-#define cudaMemGetInfo musaMemGetInfo
-#define cudaOccupancyMaxPotentialBlockSize musaOccupancyMaxPotentialBlockSize
-#define cudaSetDevice musaSetDevice
-#define cudaStreamCreateWithFlags musaStreamCreateWithFlags
-#define cudaStreamDestroy musaStreamDestroy
-#define cudaStreamFireAndForget musaStreamFireAndForget
-#define cudaStreamNonBlocking musaStreamNonBlocking
-#define cudaStreamPerThread musaStreamPerThread
-#define cudaStreamSynchronize musaStreamSynchronize
-#define cudaStreamWaitEvent musaStreamWaitEvent
-#define cudaStream_t musaStream_t
-#define cudaSuccess musaSuccess
-
-// XXX: Other CUDA => MUSA mapping
-#define CU_MEM_ACCESS_FLAGS_PROT_READWRITE MU_MEM_ACCESS_FLAGS_PROT_READWRITE
-#define CU_MEM_ALLOC_GRANULARITY_RECOMMENDED MU_MEM_ALLOC_GRANULARITY_RECOMMENDED
-#define CU_MEM_ALLOCATION_TYPE_PINNED MU_MEM_ALLOCATION_TYPE_PINNED
-#define CU_MEM_LOCATION_TYPE_DEVICE MU_MEM_LOCATION_TYPE_DEVICE
-#define CUdevice MUdevice
-#define CUdeviceptr MUdeviceptr
-#define CUmemAccessDesc MUmemAccessDesc
-#define CUmemAllocationProp MUmemAllocationProp
-#define CUmemGenericAllocationHandle MUmemGenericAllocationHandle
-#define cuDeviceGet muDeviceGet
-#define cuDeviceGetAttribute muDeviceGetAttribute
-#define cuMemAddressFree muMemAddressFree
-#define cuMemAddressReserve muMemAddressReserve
-#define cuMemCreate muMemCreate
-#define cuMemGetAllocationGranularity muMemGetAllocationGranularity
-#define cuMemMap muMemMap
-#define cuMemRelease muMemRelease
-#define cuMemSetAccess muMemSetAccess
-#define cuMemUnmap muMemUnmap
-#define cudaFuncAttributeMaxDynamicSharedMemorySize musaFuncAttributeMaxDynamicSharedMemorySize
-#define cudaFuncSetAttribute musaFuncSetAttribute
-#define cudaMemcpy3DPeerParms musaMemcpy3DPeerParms
-#define make_cudaExtent make_musaExtent
-#define make_cudaPitchedPtr make_musaPitchedPtr
-
-// XXX: USE_CUDA_GRAPH
-#define CUDA_SUCCESS MUSA_SUCCESS
-#define CUresult MUresult
-#define cuGetErrorString muGetErrorString
-#define cudaErrorGraphExecUpdateFailure musaErrorGraphExecUpdateFailure
-#define cudaErrorInvalidDeviceFunction musaErrorInvalidDeviceFunction
-#define cudaGraphDestroy musaGraphDestroy
-#define cudaGraphExecDestroy musaGraphExecDestroy
-#define cudaGraphExec_t musaGraphExec_t
-#define cudaGraphExecUpdate musaGraphExecUpdate
-#define cudaGraphExecUpdateResultInfo musaGraphExecUpdateResult
-#define cudaGraphGetNodes musaGraphGetNodes
-#define cudaGraphInstantiate musaGraphInstantiate
-#define cudaGraphKernelNodeGetParams musaGraphKernelNodeGetParams
-#define cudaGraphKernelNodeSetParams musaGraphKernelNodeSetParams
-#define cudaGraphLaunch musaGraphLaunch
-#define cudaGraphNodeGetType musaGraphNodeGetType
-#define cudaGraphNode_t musaGraphNode_t
-#define cudaGraphNodeType musaGraphNodeType
-#define cudaGraphNodeTypeKernel musaGraphNodeTypeKernel
-#define cudaGraph_t musaGraph_t
-#define cudaKernelNodeParams musaKernelNodeParams
-#define cudaStreamCaptureModeRelaxed musaStreamCaptureModeRelaxed
-#define cudaStreamEndCapture musaStreamEndCapture
-
-// XXX: cuBLAS => muBLAS mapping
-#define CU_DEVICE_ATTRIBUTE_VIRTUAL_MEMORY_MANAGEMENT_SUPPORTED MU_DEVICE_ATTRIBUTE_VIRTUAL_ADDRESS_MANAGEMENT_SUPPORTED
-#define CUBLAS_TF32_TENSOR_OP_MATH MUBLAS_MATH_MODE_DEFAULT
-#define CUBLAS_COMPUTE_16F CUDA_R_16F
-#define CUBLAS_COMPUTE_32F CUDA_R_32F
-#define cublasComputeType_t cudaDataType_t
-
-// XXX: Clang builtins mapping
-#define __vsub4   __vsub4_musa
-#define __vcmpeq4 __vcmpeq4_musa
-#define __vcmpne4 __vcmpne4_musa
+#include "vendors/musa.h"
 #else
-#include <cuda_runtime.h>
-#include <cuda.h>
-#include <cublas_v2.h>
-#include <cuda_fp16.h>
-
-#if CUDART_VERSION < 11020
-#define CU_DEVICE_ATTRIBUTE_VIRTUAL_MEMORY_MANAGEMENT_SUPPORTED CU_DEVICE_ATTRIBUTE_VIRTUAL_ADDRESS_MANAGEMENT_SUPPORTED
-#define CUBLAS_TF32_TENSOR_OP_MATH CUBLAS_TENSOR_OP_MATH
-#define CUBLAS_COMPUTE_16F CUDA_R_16F
-#define CUBLAS_COMPUTE_32F CUDA_R_32F
-#define cublasComputeType_t cudaDataType_t
-#endif // CUDART_VERSION < 11020
-
-#endif // defined(GGML_USE_HIPBLAS)
+#include "vendors/cuda.h"
+#endif // defined(GGML_USE_HIP)
 
 #define STRINGIZE_IMPL(...) #__VA_ARGS__
 #define STRINGIZE(...) STRINGIZE_IMPL(__VA_ARGS__)
@@ -285,15 +41,28 @@
 #define CUDART_HMAX   11070 // CUDA 11.7, min. ver. for which __hmax and __hmax2 are known to work (may be higher than needed)
 #define CUDART_HMASK  12000 // CUDA 12.0, min. ver. for half2 -> uint mask comparisons
 
-#define CC_PASCAL     600
-#define MIN_CC_DP4A   610 // minimum compute capability for __dp4a, an intrinsic for byte-wise dot products
-#define CC_VOLTA      700
-#define CC_TURING     750
-#define CC_AMPERE     800
-#define CC_OFFSET_AMD 1000000
-#define CC_RDNA1      (CC_OFFSET_AMD + 1010)
-#define CC_RDNA2      (CC_OFFSET_AMD + 1030)
-#define CC_RDNA3      (CC_OFFSET_AMD + 1100)
+#define GGML_CUDA_CC_PASCAL     600
+#define GGML_CUDA_CC_DP4A       610 // minimum compute capability for __dp4a, an intrinsic for byte-wise dot products
+#define GGML_CUDA_CC_VOLTA      700
+#define GGML_CUDA_CC_TURING     750
+#define GGML_CUDA_CC_AMPERE     800
+#define GGML_CUDA_CC_OFFSET_AMD 1000000
+
+// GCN/CNDA, wave size is 64
+#define GGML_CUDA_CC_GCN4       (GGML_CUDA_CC_OFFSET_AMD + 803)  // Tonga, Fiji, Polaris, minimum for fast fp16
+#define GGML_CUDA_CC_VEGA       (GGML_CUDA_CC_OFFSET_AMD + 900)  // Vega56/64, minimum for fp16 dual issue
+#define GGML_CUDA_CC_VEGA20     (GGML_CUDA_CC_OFFSET_AMD + 906)  // MI50/Radeon VII, minimum for dp4a
+#define GGML_CUDA_CC_CDNA       (GGML_CUDA_CC_OFFSET_AMD + 908)  // MI100, minimum for MFMA, acc registers
+#define GGML_CUDA_CC_CDNA2      (GGML_CUDA_CC_OFFSET_AMD + 910)  // MI210, minimum acc register renameing
+#define GGML_CUDA_CC_CDNA3      (GGML_CUDA_CC_OFFSET_AMD + 942)  // MI300
+
+// RNDA removes MFMA, dp4a, xnack, acc registers, wave size is 32
+#define GGML_CUDA_CC_RDNA1      (GGML_CUDA_CC_OFFSET_AMD + 1010) // RX 5000
+#define GGML_CUDA_CC_RDNA2      (GGML_CUDA_CC_OFFSET_AMD + 1030) // RX 6000, minimum for dp4a
+#define GGML_CUDA_CC_RDNA3      (GGML_CUDA_CC_OFFSET_AMD + 1100) // RX 7000, minimum for WMMA
+
+#define GGML_CUDA_CC_QY1        210
+#define GGML_CUDA_CC_QY2        220
 
 #define MATRIX_ROW_PADDING 512 // last row of quant. matrices is a multiple of this to avoid out-of-bounds memory accesses
 
@@ -318,11 +87,7 @@ void ggml_cuda_error(const char * stmt, const char * func, const char * file, in
 
 #if CUDART_VERSION >= 12000 || defined(GGML_USE_MUSA)
     static const char * cublas_get_error_str(const cublasStatus_t err) {
-#ifndef GGML_USE_MUSA
         return cublasGetStatusString(err);
-#else
-        return mublasStatus_to_string(err);
-#endif // GGML_USE_MUSA
     }
 #else
     static const char * cublas_get_error_str(const cublasStatus_t err) {
@@ -343,7 +108,7 @@ void ggml_cuda_error(const char * stmt, const char * func, const char * file, in
 
 #define CUBLAS_CHECK(err) CUDA_CHECK_GEN(err, CUBLAS_STATUS_SUCCESS, cublas_get_error_str)
 
-#if !defined(GGML_USE_HIPBLAS)
+#if !defined(GGML_USE_HIP)
 static const char * cu_get_error_str(CUresult err) {
     const char * err_str;
     cuGetErrorString(err, &err_str);
@@ -364,170 +129,52 @@ typedef half2 dfloat2;
 #else
 typedef float dfloat; // dequantize float
 typedef float2 dfloat2;
-#endif //GGML_CUDA_F16
+#endif // GGML_CUDA_F16
 
-#if defined(GGML_USE_MUSA)
-#ifndef __has_builtin
-    #define __has_builtin(x) 0
-#endif
-
-typedef uint8_t uint8x4_t __attribute__((ext_vector_type(4)));
-
-static __device__ __forceinline__ int __vsub4_musa(const int a, const int b) {
-    return __vsubss4(a, b);
-}
-
-static __device__ __forceinline__ unsigned int __vcmpeq4_musa(unsigned int a, unsigned int b) {
-    const uint8x4_t& va = reinterpret_cast<const uint8x4_t&>(a);
-    const uint8x4_t& vb = reinterpret_cast<const uint8x4_t&>(b);
-    unsigned int c;
-    uint8x4_t& vc = reinterpret_cast<uint8x4_t&>(c);
-#pragma unroll
-    for (int i = 0; i < 4; ++i) {
-        vc[i] = va[i] == vb[i] ? 0xff : 0x00;
-    }
-    return c;
-}
-
-static __device__ __forceinline__ unsigned int __vcmpne4_musa(unsigned int a, unsigned int b) {
-    const uint8x4_t& va = reinterpret_cast<const uint8x4_t&>(a);
-    const uint8x4_t& vb = reinterpret_cast<const uint8x4_t&>(b);
-    unsigned int c;
-    uint8x4_t& vc = reinterpret_cast<uint8x4_t&>(c);
-#pragma unroll
-    for (int i = 0; i < 4; ++i) {
-        vc[i] = va[i] == vb[i] ? 0x00 : 0xff;
-    }
-    return c;
-}
-#endif // defined(GGML_USE_MUSA)
-
-#if defined(GGML_USE_HIPBLAS)
-#define __CUDA_ARCH__ 1300
-
-#if defined(__gfx1100__) || defined(__gfx1101__) || defined(__gfx1102__) || defined(__gfx1103__) || \
-    defined(__gfx1150__) || defined(__gfx1151__)
-#define RDNA3
-#endif
-
-#if defined(__gfx1030__) || defined(__gfx1031__) || defined(__gfx1032__) || defined(__gfx1033__) || \
-    defined(__gfx1034__) || defined(__gfx1035__) || defined(__gfx1036__) || defined(__gfx1037__)
-#define RDNA2
-#endif
-
-#if defined(__gfx1010__) || defined(__gfx1012__)
-#define RDNA1
-#endif
-
-#ifndef __has_builtin
-    #define __has_builtin(x) 0
-#endif
-
-typedef int8_t int8x4_t __attribute__((ext_vector_type(4)));
-typedef uint8_t uint8x4_t __attribute__((ext_vector_type(4)));
-static __device__ __forceinline__ int __vsubss4(const int a, const int b) {
-    const int8x4_t va = reinterpret_cast<const int8x4_t&>(a);
-    const int8x4_t vb = reinterpret_cast<const int8x4_t&>(b);
-#if __has_builtin(__builtin_elementwise_sub_sat)
-    const int8x4_t c = __builtin_elementwise_sub_sat(va, vb);
-    return reinterpret_cast<const int &>(c);
-#else
-    int8x4_t c;
-    int16_t tmp;
-#pragma unroll
-    for (int i = 0; i < 4; i++) {
-        tmp = va[i] - vb[i];
-        if(tmp > std::numeric_limits<int8_t>::max()) tmp = std::numeric_limits<int8_t>::max();
-        if(tmp < std::numeric_limits<int8_t>::min()) tmp = std::numeric_limits<int8_t>::min();
-        c[i] = tmp;
-    }
-    return reinterpret_cast<int &>(c);
-#endif // __has_builtin(__builtin_elementwise_sub_sat)
-}
-
-static __device__ __forceinline__ int __vsub4(const int a, const int b) {
-    return __vsubss4(a, b);
-}
-
-static __device__ __forceinline__ unsigned int __vcmpeq4(unsigned int a, unsigned int b) {
-    const uint8x4_t& va = reinterpret_cast<const uint8x4_t&>(a);
-    const uint8x4_t& vb = reinterpret_cast<const uint8x4_t&>(b);
-    unsigned int c;
-    uint8x4_t& vc = reinterpret_cast<uint8x4_t&>(c);
-#pragma unroll
-    for (int i = 0; i < 4; ++i) {
-        vc[i] = va[i] == vb[i] ? 0xff : 0x00;
-    }
-    return c;
-}
-
-static __device__ __forceinline__ unsigned int __vcmpne4(unsigned int a, unsigned int b) {
-    const uint8x4_t& va = reinterpret_cast<const uint8x4_t&>(a);
-    const uint8x4_t& vb = reinterpret_cast<const uint8x4_t&>(b);
-    unsigned int c;
-    uint8x4_t& vc = reinterpret_cast<uint8x4_t&>(c);
-#pragma unroll
-    for (int i = 0; i < 4; ++i) {
-        vc[i] = va[i] == vb[i] ? 0x00 : 0xff;
-    }
-    return c;
-}
-
-#if defined(__HIP_PLATFORM_AMD__) && HIP_VERSION < 50600000
-// __shfl_xor() for half2 was added in ROCm 5.6
-static __device__ __forceinline__ half2 __shfl_xor(half2 var, int laneMask, int width) {
-    typedef union half2_b32 {
-        half2 val;
-        int   b32;
-    } half2_b32_t;
-    half2_b32_t tmp;
-    tmp.val = var;
-    tmp.b32 = __shfl_xor(tmp.b32, laneMask, width);
-    return tmp.val;
-}
-#endif // defined(__HIP_PLATFORM_AMD__) && HIP_VERSION < 50600000
-#endif // defined(GGML_USE_HIPBLAS)
-
-#if (defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__)) || __CUDA_ARCH__ >= CC_PASCAL
+#if (defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)) || __CUDA_ARCH__ >= GGML_CUDA_CC_PASCAL
 #define FP16_AVAILABLE
-#endif // (defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__)) || __CUDA_ARCH__ >= CC_PASCAL
+#endif // (defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)) || __CUDA_ARCH__ >= GGML_CUDA_CC_PASCAL
 
 #if defined(FP16_AVAILABLE) && __CUDA_ARCH__ != 610
 #define FAST_FP16_AVAILABLE
 #endif // defined(FP16_AVAILABLE) && __CUDA_ARCH__ != 610
 
-#if !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__)) && __CUDA_ARCH__ >= CC_VOLTA
+#if !(defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)) && __CUDA_ARCH__ >= GGML_CUDA_CC_VOLTA
 #define FP16_MMA_AVAILABLE
-#endif // !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__)) && __CUDA_ARCH__ >= CC_VOLTA
+#endif // !(defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)) && __CUDA_ARCH__ >= GGML_CUDA_CC_VOLTA
 
-#if !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__)) && __CUDA_ARCH__ >= CC_TURING
+#if !(defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)) && __CUDA_ARCH__ >= GGML_CUDA_CC_TURING
 #define INT8_MMA_AVAILABLE
-#endif // !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__)) && __CUDA_ARCH__ >= CC_TURING
+#endif // !(defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)) && __CUDA_ARCH__ >= GGML_CUDA_CC_TURING
+
+#if !(defined(GGML_USE_MUSA) && __MUSA_ARCH__ <= GGML_CUDA_CC_QY1)
+#define FLASH_ATTN_AVAILABLE
+#endif // !(defined(GGML_USE_MUSA) && __MUSA_ARCH__ <= GGML_CUDA_CC_QY1)
 
 static constexpr bool fast_fp16_available(const int cc) {
-    return cc >= CC_PASCAL && cc != 610;
+    return cc >= GGML_CUDA_CC_PASCAL && cc != 610;
 }
 
 static constexpr bool fp16_mma_available(const int cc) {
-    return cc < CC_OFFSET_AMD && cc >= CC_VOLTA;
+    return cc < GGML_CUDA_CC_OFFSET_AMD && cc >= GGML_CUDA_CC_VOLTA;
 }
 
 static constexpr bool int8_mma_available(const int cc) {
-    return cc < CC_OFFSET_AMD && cc >= CC_TURING;
+    return cc < GGML_CUDA_CC_OFFSET_AMD && cc >= GGML_CUDA_CC_TURING;
 }
 
 [[noreturn]]
 static __device__ void no_device_code(
     const char * file_name, const int line, const char * function_name, const int arch, const char * arch_list) {
 
-#if defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__)
+#if defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)
     printf("%s:%d: ERROR: HIP kernel %s has no device code compatible with HIP arch %d.\n",
            file_name, line, function_name, arch);
     GGML_UNUSED(arch_list);
 #else
     printf("%s:%d: ERROR: CUDA kernel %s has no device code compatible with CUDA arch %d. ggml-cuda.cu was compiled for: %s\n",
            file_name, line, function_name, arch, arch_list);
-#endif // defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__)
+#endif // defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)
     __trap();
 
     GGML_UNUSED(no_device_code); // suppress unused function warning
@@ -539,19 +186,31 @@ static __device__ void no_device_code(
 #define NO_DEVICE_CODE //GGML_ABORT("NO_DEVICE_CODE not valid in host code.")
 #endif // __CUDA_ARCH__
 
+static __device__ __forceinline__ int warp_reduce_sum(int x) {
+#if !(defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)) && __CUDA_ARCH__ >= GGML_CUDA_CC_AMPERE
+    return __reduce_add_sync(0xffffffff, x);
+#else
+#pragma unroll
+    for (int offset = 16; offset > 0; offset >>= 1) {
+        x += __shfl_xor_sync(0xffffffff, x, offset, 32);
+    }
+    return x;
+#endif // !(defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)) && __CUDA_ARCH__ >= GGML_CUDA_CC_AMPERE
+}
+
 static __device__ __forceinline__ float warp_reduce_sum(float x) {
 #pragma unroll
-    for (int mask = 16; mask > 0; mask >>= 1) {
-        x += __shfl_xor_sync(0xffffffff, x, mask, 32);
+    for (int offset = 16; offset > 0; offset >>= 1) {
+        x += __shfl_xor_sync(0xffffffff, x, offset, 32);
     }
     return x;
 }
 
 static __device__ __forceinline__ float2 warp_reduce_sum(float2 a) {
 #pragma unroll
-    for (int mask = 16; mask > 0; mask >>= 1) {
-        a.x += __shfl_xor_sync(0xffffffff, a.x, mask, 32);
-        a.y += __shfl_xor_sync(0xffffffff, a.y, mask, 32);
+    for (int offset = 16; offset > 0; offset >>= 1) {
+        a.x += __shfl_xor_sync(0xffffffff, a.x, offset, 32);
+        a.y += __shfl_xor_sync(0xffffffff, a.y, offset, 32);
     }
     return a;
 }
@@ -559,21 +218,21 @@ static __device__ __forceinline__ float2 warp_reduce_sum(float2 a) {
 static __device__ __forceinline__ half2 warp_reduce_sum(half2 a) {
 #ifdef FP16_AVAILABLE
 
-#if defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__)
+#if defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)
 #pragma unroll
-    for (int mask = 16; mask > 0; mask >>= 1) {
-        const half2 a_other = __shfl_xor_sync(0xffffffff, a, mask, 32);
+    for (int offset = 16; offset > 0; offset >>= 1) {
+        const half2 a_other = __shfl_xor_sync(0xffffffff, a, offset, 32);
         reinterpret_cast<half&>(a.x) +=  __low2half(a_other);
         reinterpret_cast<half&>(a.y) += __high2half(a_other);
     }
     return a;
 #else
 #pragma unroll
-    for (int mask = 16; mask > 0; mask >>= 1) {
-        a = __hadd2(a, __shfl_xor_sync(0xffffffff, a, mask, 32));
+    for (int offset = 16; offset > 0; offset >>= 1) {
+        a = __hadd2(a, __shfl_xor_sync(0xffffffff, a, offset, 32));
     }
     return a;
-#endif // defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__)
+#endif // defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)
 
 #else
     NO_DEVICE_CODE;
@@ -583,8 +242,8 @@ static __device__ __forceinline__ half2 warp_reduce_sum(half2 a) {
 
 static __device__ __forceinline__ float warp_reduce_max(float x) {
 #pragma unroll
-    for (int mask = 16; mask > 0; mask >>= 1) {
-        x = fmaxf(x, __shfl_xor_sync(0xffffffff, x, mask, 32));
+    for (int offset = 16; offset > 0; offset >>= 1) {
+        x = fmaxf(x, __shfl_xor_sync(0xffffffff, x, offset, 32));
     }
     return x;
 }
@@ -592,11 +251,11 @@ static __device__ __forceinline__ float warp_reduce_max(float x) {
 static __device__ __forceinline__ half ggml_cuda_hmax(const half a, const half b) {
 #ifdef FP16_AVAILABLE
 
-#if !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__)) && CUDART_VERSION < CUDART_HMAX
+#if !(defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)) && CUDART_VERSION < CUDART_HMAX
     return __float2half(fmaxf(__half2float(a), __half2float(b)));
 #else
     return __hmax(a, b);
-#endif // !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__)) && CUDART_VERSION < CUDART_HMAX
+#endif // !(defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)) && CUDART_VERSION < CUDART_HMAX
 
 #else
    NO_DEVICE_CODE;
@@ -606,7 +265,7 @@ static __device__ __forceinline__ half ggml_cuda_hmax(const half a, const half b
 }
 
 static __device__ __forceinline__ half2 ggml_cuda_hmax2(const half2 a, const half2 b) {
-#if !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__))
+#if !(defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__))
 
 #if CUDART_VERSION >= CUDART_HMAX
     return __hmax2(a, b);
@@ -621,20 +280,20 @@ static __device__ __forceinline__ half2 ggml_cuda_hmax2(const half2 a, const hal
     GGML_UNUSED(a);
     GGML_UNUSED(b);
     NO_DEVICE_CODE;
-#endif // !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__))
+#endif // !(defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__))
 }
 
 static __device__ __forceinline__ half2 warp_reduce_max(half2 x) {
-#if !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__)) && __CUDA_ARCH__ >= CC_PASCAL
+#if !(defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)) && __CUDA_ARCH__ >= GGML_CUDA_CC_PASCAL
 #pragma unroll
-   for (int mask = 16; mask > 0; mask >>= 1) {
-       x = ggml_cuda_hmax2(x, __shfl_xor_sync(0xffffffff, x, mask, 32));
+   for (int offset = 16; offset > 0; offset >>= 1) {
+       x = ggml_cuda_hmax2(x, __shfl_xor_sync(0xffffffff, x, offset, 32));
    }
    return x;
 #else
    GGML_UNUSED(x);
    NO_DEVICE_CODE;
-#endif // !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__)) && __CUDA_ARCH__ >= CC_PASCAL
+#endif // !(defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)) && __CUDA_ARCH__ >= GGML_CUDA_CC_PASCAL
 }
 
 #if CUDART_VERSION < CUDART_HMASK
@@ -646,7 +305,7 @@ static __device__ __forceinline__ uint32_t __hgt2_mask(const half2 a, const half
 #endif // CUDART_VERSION < CUDART_HMASK
 
 static __device__ __forceinline__ int ggml_cuda_dp4a(const int a, const int b, int c) {
-#if defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__)
+#if defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)
 #if defined(__gfx906__) || defined(__gfx908__) || defined(__gfx90a__) || defined(RDNA2)
     c = __builtin_amdgcn_sdot4(a, b, c, false);
 #elif defined(RDNA3)
@@ -672,17 +331,17 @@ static __device__ __forceinline__ int ggml_cuda_dp4a(const int a, const int b, i
 #endif
     return c;
 
-#else // defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__)
+#else // defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)
 
-#if __CUDA_ARCH__ >= MIN_CC_DP4A
+#if __CUDA_ARCH__ >= GGML_CUDA_CC_DP4A
     return __dp4a(a, b, c);
-#else // __CUDA_ARCH__ >= MIN_CC_DP4A
+#else // __CUDA_ARCH__ >= GGML_CUDA_CC_DP4A
     const int8_t * a8 = (const int8_t *) &a;
     const int8_t * b8 = (const int8_t *) &b;
     return c + a8[0]*b8[0] + a8[1]*b8[1] + a8[2]*b8[2] + a8[3]*b8[3];
-#endif // __CUDA_ARCH__ >= MIN_CC_DP4A
+#endif // __CUDA_ARCH__ >= GGML_CUDA_CC_DP4A
 
-#endif // defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__)
+#endif // defined(GGML_USE_HIP) && defined(__HIP_PLATFORM_AMD__)
 }
 
 // TODO: move to ggml-common.h
@@ -939,6 +598,7 @@ struct ggml_graph_node_properties {
     int64_t ne[GGML_MAX_DIMS];
     size_t nb[GGML_MAX_DIMS];
     void * src_address[GGML_MAX_SRC];
+    int32_t op_params[GGML_MAX_OP_PARAMS / sizeof(int32_t)];
 };
 
 struct ggml_cuda_graph {

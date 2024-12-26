@@ -1,3 +1,5 @@
+import typography from '@tailwindcss/typography';
+
 /** @type {import('tailwindcss').Config} */
 export default {
 	darkMode: 'class',
@@ -30,8 +32,11 @@ export default {
 						'code::after': false
 					}
 				}
+			},
+			padding: {
+				'safe-bottom': 'env(safe-area-inset-bottom)'
 			}
 		}
 	},
-	plugins: [require('@tailwindcss/typography')]
+	plugins: [typography]
 };

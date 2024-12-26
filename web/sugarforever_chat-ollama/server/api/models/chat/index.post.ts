@@ -9,8 +9,15 @@ import { BaseRetriever } from "@langchain/core/retrievers"
 import prisma from "@/server/utils/prisma"
 import { createChatModel, createEmbeddings } from '@/server/utils/models'
 import { createRetriever } from '@/server/retriever'
-import { AIMessage, BaseMessage, BaseMessageLike, HumanMessage } from '@langchain/core/messages'
+import { AIMessage, BaseMessage, BaseMessageLike, HumanMessage, ToolMessage } from '@langchain/core/messages'
 import { resolveCoreference } from '~/server/coref'
+import { concat } from "@langchain/core/utils/stream"
+import { MODEL_FAMILIES } from '~/config'
+import { McpService } from '@/server/utils/mcp'
+import { zodToJsonSchema } from 'zod-to-json-schema'
+import { ChatOllama } from '@langchain/ollama'
+import { tool } from '@langchain/core/tools'
+import { BaseChatModel } from '@langchain/core/language_models/chat_models'
 
 interface RequestBody {
   knowledgebaseId: number
@@ -19,6 +26,8 @@ interface RequestBody {
   messages: {
     role: 'user' | 'assistant'
     content: string
+    toolCallId?: string
+    toolResult: boolean
   }[]
   stream: any
 }
@@ -52,7 +61,9 @@ const transformMessages = (messages: RequestBody['messages']): BaseMessageLike[]
 const normalizeMessages = (messages: RequestBody['messages']): BaseMessage[] => {
   const normalizedMessages = []
   for (const message of messages) {
-    if (message.role === "user") {
+    if (message.toolResult) {
+      normalizedMessages.push(new ToolMessage(message.content, message.toolCallId!))
+    } else if (message.role === "user") {
       normalizedMessages.push(new HumanMessage(message.content))
     } else if (message.role === "assistant") {
       normalizedMessages.push(new AIMessage(message.content))
@@ -167,11 +178,42 @@ export default defineEventHandler(async (event) => {
     })())
     return sendStream(event, readableStream)
   } else {
-    const llm = createChatModel(model, family, event)
+    let llm = createChatModel(model, family, event)
+
+    const mcpService = new McpService()
+    const normalizedTools = await mcpService.listTools()
+    const toolsMap = normalizedTools.reduce((acc, tool) => {
+      acc[tool.name] = tool
+      return acc
+    }, {})
+    if (family === MODEL_FAMILIES.anthropic && normalizedTools?.length) {
+      /*
+      if (family === MODEL_FAMILIES.gemini) {
+        llm = llm.bindTools(normalizedTools.map((t) => {
+          console.log(`Tool ${t.name}: `, t.mcpSchema)
+          return {
+            name: t.name,
+            description: t.description,
+            parameters: t.mcpSchema
+          }
+        }))
+      } else {
+        llm = llm.bindTools(normalizedTools)
+      }
+      */
+      if (llm?.bindTools) {
+        llm = llm.bindTools(normalizedTools) as BaseChatModel
+      }
+    } else if (llm instanceof ChatOllama) {
+      /*
+      console.log("Binding tools to ChatOllama")
+      llm = llm.bindTools(normalizedTools)
+      */
+    }
 
     if (!stream) {
       const response = await llm.invoke(transformMessages(messages))
-
+      console.log(response)
       return {
         message: {
           role: 'assistant',
@@ -180,20 +222,61 @@ export default defineEventHandler(async (event) => {
       }
     }
 
+    console.log("Streaming response")
     const response = await llm?.stream(messages.map((message: RequestBody['messages'][number]) => {
       return [message.role, message.content]
     }))
 
+    console.log(response)
+
     const readableStream = Readable.from((async function* () {
+
+      let gathered = undefined
+
       for await (const chunk of response) {
+        gathered = gathered !== undefined ? concat(gathered, chunk) : chunk
+
+        let content = chunk?.content
+
+        // Handle array of text_delta objects
+        if (Array.isArray(content)) {
+          content = content
+            .filter(item => item.type === 'text_delta')
+            .map(item => item.text)
+            .join('')
+        }
+
         const message = {
           message: {
             role: 'assistant',
-            content: chunk?.content
+            content: content
           }
         }
         yield `${JSON.stringify(message)} \n\n`
       }
+
+      for (const toolCall of gathered?.tool_calls ?? []) {
+        console.log("Tool call: ", toolCall)
+        const selectedTool = toolsMap[toolCall.name]
+
+        if (selectedTool) {
+          const result = await selectedTool.invoke(toolCall)
+
+          console.log("Tool result: ", result)
+
+          const message = {
+            message: {
+              role: "user",
+              type: "tool_result",
+              tool_use_id: result.tool_call_id,
+              content: result.content
+            }
+          }
+
+          yield `${JSON.stringify(message)} \n\n`
+        }
+      }
+
     })())
 
     return sendStream(event, readableStream)

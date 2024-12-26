@@ -1,6 +1,49 @@
 # Local Inference
 
+## Hugging face setup
+**Important Note**: Before running the inference, you'll need your Hugging Face access token, which you can get at your Settings page [here](https://huggingface.co/settings/tokens). Then run `huggingface-cli login` and copy and paste your Hugging Face access token to complete the login to make sure the scripts can download Hugging Face models if needed.
+
+## Multimodal Inference and CLI inference with or without PEFT LoRA weights
+
+### Model Overview
+- Base model: `meta-llama/Llama-3.2-11B-Vision-Instruct`
+- Uses PEFT library (v0.13.1) for efficient fine-tuning
+- Supports vision-language tasks with instruction capabilities
+
+### Features in
+`multi_modal_infer.py`
+
+All functionality has been consolidated into a single file with three main modes, use `huggingface-cli login`:
+### Steps to run are given below:
+1. **Basic Inference**
+```bash
+python multi_modal_infer.py \
+    --image_path "path/to/image.jpg" \
+    --prompt_text "Describe this image" \
+    --model_name "meta-llama/Llama-3.2-11B-Vision-Instruct" \
+```
+
+2. **Gradio UI Mode**
+```bash
+python multi_modal_infer.py \
+    --model_name "meta-llama/Llama-3.2-11B-Vision-Instruct" \
+    --gradio_ui
+```
+
+3. **LoRA Fine-tuning Integration**
+```bash
+python multi_modal_infer.py \
+    --image_path "path/to/image.jpg" \
+    --prompt_text "Describe this image" \
+    --model_name "meta-llama/Llama-3.2-11B-Vision-Instruct" \
+    --finetuning_path "path/to/lora/weights"
+```
+
+
+## Text-only Inference
 For local inference we have provided an [inference script](inference.py). Depending on the type of finetuning performed during training the [inference script](inference.py) takes different arguments.
+
+
 To finetune all model parameters the output dir of the training has to be given as --model_name argument.
 In the case of a parameter efficient method like lora the base model has to be given as --model_name and the output dir of the training has to be given as --peft_model argument.
 Additionally, a prompt for the model in the form of a text file has to be provided. The prompt file can either be piped through standard input or given as --prompt_file parameter.

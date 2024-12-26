@@ -1,4 +1,5 @@
-﻿using LLama.Common;
+using LLama.Common;
+using LLama.Sampling;
 
 namespace LLama.Examples.Examples
 {
@@ -13,7 +14,6 @@ namespace LLama.Examples.Examples
 
             var parameters = new ModelParams(modelPath)
             {
-                Seed = 1337,
                 GpuLayerCount = 5
             };
             using var model = await LLamaWeights.LoadFromFileAsync(parameters);
@@ -26,7 +26,16 @@ namespace LLama.Examples.Examples
 
             Console.Write(prompt);
 
-            var inferenceParams = new InferenceParams() { Temperature = 0.6f, AntiPrompts = new List<string> { "User:" }, MaxTokens = 128 };
+            var inferenceParams = new InferenceParams
+            {
+                AntiPrompts = new List<string> { "User:" },
+                MaxTokens = 128,
+
+                SamplingPipeline = new DefaultSamplingPipeline
+                {
+                    Temperature = 0.6f
+                }
+            };
 
             while (true)
             {

@@ -25,7 +25,7 @@ body {
 }
 
 .md-body {
-  --color-neutral-muted: rgb(var(--color-primary-100));
+  --color-neutral-muted: rgb(var(--color-primary-400) / 0.1);
   --color-canvas-subtle: rgb(var(--color-primary-50));
 
   background-color: transparent;
@@ -52,7 +52,7 @@ body {
 }
 
 .dark .md-body {
-  --color-neutral-muted: rgb(var(--color-primary-800));
+  --color-neutral-muted: rgb(var(--color-primary-200) / 0.2);
   --color-canvas-subtle: rgb(var(--color-gray-900));
 }
 
@@ -72,5 +72,15 @@ body {
       opacity: 1;
       transform: scale(1);
     }
+  }
+}
+
+@supports (-webkit-touch-callout: none) and (overflow: -webkit-paged-x) {
+
+  textarea:focus,
+  input[type="input"]:focus,
+  input[type="password"]:focus,
+  input[type="number"]:focus {
+    font-size: 16px !important;
   }
 }

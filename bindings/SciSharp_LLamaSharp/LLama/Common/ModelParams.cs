@@ -28,9 +28,6 @@ namespace LLama.Common
         public uint SeqMax { get; set; } = 1;
 
         /// <inheritdoc />
-        public uint? Seed { get; set; }
-
-        /// <inheritdoc />
         public bool UseMemorymap { get; set; } = true;
 
         /// <inheritdoc />
@@ -40,16 +37,10 @@ namespace LLama.Common
         public string ModelPath { get; set; }
 
         /// <inheritdoc />
-        public AdapterCollection LoraAdapters { get; set; } = new();
+        public int? Threads { get; set; }
 
         /// <inheritdoc />
-        public string LoraBase { get; set; } = string.Empty;
-
-        /// <inheritdoc />
-        public uint? Threads { get; set; }
-
-        /// <inheritdoc />
-        public uint? BatchThreads { get; set; }
+        public int? BatchThreads { get; set; }
 
         /// <inheritdoc />
         public uint BatchSize { get; set; } = 512;

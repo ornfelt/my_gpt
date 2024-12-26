@@ -15,6 +15,7 @@
 
 #include <sycl/sycl.hpp>
 #include <sycl/half_type.hpp>
+#include <syclcompat/math.hpp>
 #include <oneapi/mkl.hpp>
 #include <map>
 
@@ -874,7 +875,7 @@ namespace dpct
         inline std::string get_preferred_gpu_platform_name() {
             std::string result;
 
-            std::string filter = "level-zero";
+            std::string filter = "";
             char* env = getenv("ONEAPI_DEVICE_SELECTOR");
             if (env) {
                 if (std::strstr(env, "level_zero")) {
@@ -892,11 +893,24 @@ namespace dpct
                 else {
                     throw std::runtime_error("invalid device filter: " + std::string(env));
                 }
+            } else {
+                auto default_device = sycl::device(sycl::default_selector_v);
+                auto default_platform_name = default_device.get_platform().get_info<sycl::info::platform::name>();
+
+                if (std::strstr(default_platform_name.c_str(), "Level-Zero") || default_device.is_cpu()) {
+                    filter = "level-zero";
+                }
+                else if (std::strstr(default_platform_name.c_str(), "CUDA")) {
+                    filter = "cuda";
+                }
+                else if (std::strstr(default_platform_name.c_str(), "HIP")) {
+                    filter = "hip";
+                }
             }
 
-            auto plaform_list = sycl::platform::get_platforms();
+            auto platform_list = sycl::platform::get_platforms();
 
-            for (const auto& platform : plaform_list) {
+            for (const auto& platform : platform_list) {
                 auto devices = platform.get_devices();
                 auto gpu_dev = std::find_if(devices.begin(), devices.end(), [](const sycl::device& d) {
                     return d.is_gpu();
@@ -1223,7 +1237,7 @@ namespace dpct
 
             std::map<byte_t *, allocation>::iterator get_map_iterator(const void *ptr)
             {
-                auto it = m_map.upper_bound((byte_t *)ptr);
+                auto it = m_map.upper_bound(const_cast<byte_t *>(reinterpret_cast<const byte_t *>(ptr)));
                 if (it == m_map.end())
                 {
                     // Not a virtual pointer.
@@ -1675,9 +1689,14 @@ namespace dpct
             auto data_a = get_memory<const Ta>(a);
             auto data_b = get_memory<const Tb>(b);
             auto data_c = get_memory<Tc>(c);
-            oneapi::mkl::blas::column_major::gemm(
-                q, a_trans, b_trans, m, n, k, alpha_value, data_a, lda,
-                data_b, ldb, beta_value, data_c, ldc);
+#ifdef GGML_SYCL_NVIDIA
+            oneapi::mkl::blas::column_major::gemm(oneapi::mkl::backend_selector<oneapi::mkl::backend::cublas>{ q },
+                                                  a_trans, b_trans, m, n, k, alpha_value, data_a, lda, data_b, ldb,
+                                                  beta_value, data_c, ldc);
+#else
+            oneapi::mkl::blas::column_major::gemm(q, a_trans, b_trans, m, n, k, alpha_value, data_a, lda, data_b, ldb,
+                                                  beta_value, data_c, ldc);
+#endif
         }
 
         template <typename VecT, class BinaryOperation, class = void>
@@ -1740,14 +1759,22 @@ namespace dpct
             matrix_info->ld_info[2] = ldc;
             matrix_info->groupsize_info = batch_size;
 
+#ifdef GGML_SYCL_NVIDIA
             sycl::event e = oneapi::mkl::blas::column_major::gemm_batch(
-                q, matrix_info->transpose_info, matrix_info->transpose_info + 1,
-                matrix_info->size_info, matrix_info->size_info + 1,
-                matrix_info->size_info + 2, matrix_info->value_info,
-                reinterpret_cast<const Ta **>(a), matrix_info->ld_info,
-                reinterpret_cast<const Tb **>(b), matrix_info->ld_info + 1,
-                matrix_info->value_info + 1, reinterpret_cast<Tc **>(c),
+                oneapi::mkl::backend_selector<oneapi::mkl::backend::cublas>{ q }, matrix_info->transpose_info,
+                matrix_info->transpose_info + 1, matrix_info->size_info, matrix_info->size_info + 1,
+                matrix_info->size_info + 2, matrix_info->value_info, reinterpret_cast<const Ta **>(a),
+                matrix_info->ld_info, reinterpret_cast<const Tb **>(b), matrix_info->ld_info + 1,
+                matrix_info->value_info + 1, reinterpret_cast<Tc **>(c), matrix_info->ld_info + 2, 1,
+                &(matrix_info->groupsize_info));
+#else
+            sycl::event e = oneapi::mkl::blas::column_major::gemm_batch(
+                q, matrix_info->transpose_info, matrix_info->transpose_info + 1, matrix_info->size_info,
+                matrix_info->size_info + 1, matrix_info->size_info + 2, matrix_info->value_info,
+                reinterpret_cast<const Ta **>(a), matrix_info->ld_info, reinterpret_cast<const Tb **>(b),
+                matrix_info->ld_info + 1, matrix_info->value_info + 1, reinterpret_cast<Tc **>(c),
                 matrix_info->ld_info + 2, 1, &(matrix_info->groupsize_info));
+#endif
 
             q.submit([&](sycl::handler &cgh)
                      {
@@ -1769,10 +1796,16 @@ namespace dpct
             auto data_a = get_memory<const Ta>(a);
             auto data_b = get_memory<const Tb>(b);
             auto data_c = get_memory<Tc>(c);
+#ifdef GGML_SYCL_NVIDIA
             oneapi::mkl::blas::column_major::gemm_batch(
-                q, a_trans, b_trans, m, n, k, alpha_value, data_a, lda,
-                stride_a, data_b, ldb, stride_b, beta_value,
-                data_c, ldc, stride_c, batch_size);
+                oneapi::mkl::backend_selector<oneapi::mkl::backend::cublas>{ q }, a_trans, b_trans, m, n, k,
+                alpha_value, data_a, lda, stride_a, data_b, ldb, stride_b, beta_value, data_c, ldc, stride_c,
+                batch_size);
+#else
+            oneapi::mkl::blas::column_major::gemm_batch(q, a_trans, b_trans, m, n, k, alpha_value, data_a, lda,
+                                                        stride_a, data_b, ldb, stride_b, beta_value, data_c, ldc,
+                                                        stride_c, batch_size);
+#endif
         }
 
     } // namespace detail
@@ -1817,31 +1850,10 @@ namespace dpct
                                            : id);
     }
 
-    template <typename T>
-    sycl::vec<T, 4> extract_and_sign_or_zero_extend4(T val)
-    {
-        return sycl::vec<T, 1>(val)
-            .template as<sycl::vec<
-                std::conditional_t<std::is_signed_v<T>, int8_t, uint8_t>, 4>>()
-            .template convert<T>();
-    }
-
-    template <typename T1, typename T2>
-    using dot_product_acc_t =
-        std::conditional_t<std::is_unsigned_v<T1> && std::is_unsigned_v<T2>,
-                           uint32_t, int32_t>;
-
     template <typename T1, typename T2, typename T3>
     inline auto dp4a(T1 a, T2 b, T3 c)
     {
-        dot_product_acc_t<T1, T2> res = c;
-        auto va = extract_and_sign_or_zero_extend4(a);
-        auto vb = extract_and_sign_or_zero_extend4(b);
-        res += va[0] * vb[0];
-        res += va[1] * vb[1];
-        res += va[2] * vb[2];
-        res += va[3] * vb[3];
-        return res;
+        return syclcompat::dp4a(a, b, c);
     }
 
     struct sub_sat

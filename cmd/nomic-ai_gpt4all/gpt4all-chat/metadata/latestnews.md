@@ -1,6 +1,16 @@
 ## Latest News
 
-* **New Model Support**: LLaMa 3.1 8b, Gemma, Mixtral, GPT-NeoX, Gemma 2, OpenELM, ChatGLM, Jais architectures, StarCoder2, XVERSE, Command R, and OLMo (all with Vulkan support)
-* **Suggested Follow Up Questions**: Get follow up questions on your LocalDocs or chats automatically suggested
+GPT4All v3.6.1 was released on December 20th and fixes issues with the stop generation and copy conversation buttons which were broken in v3.6.0.
 
-Roadmap: we're planning support for tools in GPT4All that models like LLaMa 3.1 can use. Share suggestions on Discord!
+---
+
+GPT4All v3.6.0 was released on December 19th. Changes include:
+
+* **Reasoner v1:**
+  * Built-in javascript code interpreter tool.
+  * Custom curated model that utilizes the code interpreter to break down, analyze, perform, and verify complex reasoning tasks.
+* **Templates:** Automatically substitute chat templates that are not compatible with Jinja2Cpp in GGUFs.
+* **Fixes:**
+  * Remote model template to allow for XML in messages.
+  * Jinja2Cpp bug that broke system message detection in chat templates.
+  * LocalDocs sources displaying in unconsolidated form after v3.5.0.

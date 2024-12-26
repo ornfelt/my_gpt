@@ -12,15 +12,53 @@ import network
 import gpt4all
 import localdocs
 import mysettings
+import Qt.labs.platform
 
 Window {
     id: window
-    width: 1920
-    height: 1080
-    minimumWidth: 1280
-    minimumHeight: 720
+    width: 1440
+    height: 810
+    minimumWidth: 658 + 470 * theme.fontScale
+    minimumHeight: 384 + 160 * theme.fontScale
     visible: true
     title: qsTr("GPT4All v%1").arg(Qt.application.version)
+
+    SystemTrayIcon {
+        id: systemTrayIcon
+        property bool shouldClose: false
+        visible: MySettings.systemTray && !shouldClose
+        icon.source: "qrc:/gpt4all/icons/gpt4all.svg"
+
+        function restore() {
+            LLM.showDockIcon();
+            window.show();
+            window.raise();
+            window.requestActivate();
+        }
+        onActivated: function(reason) {
+            if (reason === SystemTrayIcon.Context && Qt.platform.os !== "osx")
+                menu.open();
+            else if (reason === SystemTrayIcon.Trigger)
+                restore();
+        }
+
+        menu: Menu {
+            MenuItem {
+                text: qsTr("Restore")
+                onTriggered: systemTrayIcon.restore()
+            }
+            MenuItem {
+                text: qsTr("Quit")
+                onTriggered: {
+                    systemTrayIcon.restore();
+                    systemTrayIcon.shouldClose = true;
+                    window.shouldClose = true;
+                    savingPopup.open();
+                    ChatListModel.saveChats();
+                }
+            }
+        }
+    }
 
     Settings {
         property alias x: window.x
@@ -156,7 +194,7 @@ Window {
         font.pixelSize: theme.fontSizeLarge
     }
 
-    property bool hasSaved: false
+    property bool shouldClose: false
 
     PopupDialog {
         id: savingPopup
@@ -180,9 +218,18 @@ Window {
     }
 
     onClosing: function(close) {
-        if (window.hasSaved)
+        if (systemTrayIcon.visible) {
+            LLM.hideDockIcon();
+            window.visible = false;
+            ChatListModel.saveChats();
+            close.accepted = false;
+            return;
+        }
+
+        if (window.shouldClose)
             return;
 
+        window.shouldClose = true;
         savingPopup.open();
         ChatListModel.saveChats();
         close.accepted = false
@@ -191,9 +238,9 @@ Window {
     Connections {
         target: ChatListModel
         function onSaveChatsFinished() {
-            window.hasSaved = true;
             savingPopup.close();
-            window.close()
+            if (window.shouldClose)
+                window.close()
         }
     }
 
@@ -422,7 +469,7 @@ Window {
                             return qsTr("The datalake is enabled")
                         else if (currentChat.modelInfo.isOnline)
                             return qsTr("Using a network model")
-                        else if (currentChat.modelInfo.isOnline)
+                        else if (currentChat.isServer)
                             return qsTr("Server mode is enabled")
                         return ""
                     }
@@ -627,9 +674,6 @@ Window {
 
             function show() {
                 stackLayout.currentIndex = 2;
-                // FIXME This expanded code should be removed and we should be changing the names of
-                // the classes here in ModelList for the proxy/filter models
-                ModelList.downloadableModels.expanded = true
             }
 
             function isShown() {

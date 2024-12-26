@@ -1,84 +1,7 @@
 .filetable {
-  /* width: calc(-360px + 100dvw); */
-  height: calc(-400px + 100dvh);
   border: 1px solid #d1d5db;
+  width: 95% !important;
 }
-
-.fileTableWithExpansion {
-  width: calc(-640px + 100dvw) !important;
-  height: calc(-400px + 100dvh);
-  border: 1px solid #d1d5db;
-}
-
-.fileTableWithBothDrawers {
-  width: calc(-650px + 100dvw) !important;
-  height: calc(-400px + 100dvh);
-  border: 1px solid #d1d5db;
-}
-
-.fileTableWithExpansion .ndl-div-table {
-  width: max-content !important;
-}
-
-.filetable .ndl-div-table {
-  width: max-content !important;
-}
-
-.contentWithExpansion {
-  width: calc(-840px + 100dvw);
-  height: calc(100dvh - 58px);
-  padding: 3px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  position: relative;
-}
-
-.contentWithOneExpansion {
-  width: calc(-550px + 100dvw);
-  height: calc(100dvh - 58px);
-  padding: 3px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  position: relative;
-}
-
-.contentWithBothDrawers {
-  width: calc(-786px + 100dvw);
-  height: calc(100dvh - 58px);
-  padding: 3px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  position: relative;
-}
-
-.contentWithChatBot {
-  width: calc(-550px + 100dvw);
-  height: calc(100dvh - 58px);
-  padding: 3px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  position: relative;
-}
-
-.contentWithDropzoneExpansion {
-  width: calc(100% - 422px);
-  height: calc(100dvh - 58px);
-  padding: 3px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  position: relative;
-}
-
 .s3Container {
   display: flex;
   align-items: center;
@@ -121,7 +44,8 @@
   height: 55px;
   object-fit: contain;
 }
-.webImg{
+
+.webImg {
   width: 80px;
   height: 80px;
 }
@@ -233,18 +157,18 @@
   letter-spacing: 0;
   line-height: 1.25rem;
   width: max-content;
-  height: 30px;
   text-overflow: ellipsis;
   white-space: nowrap;
-  overflow: hidden;
 }
 
 .ndl-widget-content>div {
   overflow-wrap: break-word
 }
-.word-break{
+
+.word-break {
   word-break: break-word;
 }
+
 .cellClass {
   width: 100%;
   height: 100%;
@@ -347,14 +271,88 @@
   margin-bottom: 0 !important;
 }
 
-.node_label__value-container--has-value {
+.node_label__value-container--has-value,
+.relationship_label__value-container--has-value {
   max-height: 215px;
   overflow-y: scroll !important;
   scrollbar-width: thin;
 }
 
-.relationship_label__value-container--has-value {
-  max-height: 215px;
+.entity_extraction_Tab_node_label__value-container--has-value,
+.entity_extraction_Tab_relationship_label__value-container--has-value {
+  max-height: 100px;
   overflow-y: scroll !important;
-  scrollbar-width: thin
+  scrollbar-width: thin;
+}
+
+.tablet_entity_extraction_Tab_node_label__value-container--has-value,
+.tablet_entity_extraction_Tab_relationship_label__value-container--has-value {
+  max-height: 80px;
+  overflow-y: scroll !important;
+  scrollbar-width: thin;
+}
+
+.widthunset {
+  width: initial !important;
+  height: initial !important;
+}
+
+.text-input-container {
+  transition: width 1.5s ease;
+  /* width: 100dvh; */
+}
+
+.text-input-container.search-initiated {
+  width: 60dvh;
+}
+
+.custom-menu {
+  min-width: 250px;
+  max-width: 305px;
+}
+.ndl-modal-root{
+  z-index: 39 !important;
+}
+.tbody-dark .ndl-data-grid-tr:hover {
+  --cell-background: rgb(60 63 68) !important;
+}
+.tbody-light .ndl-data-grid-tr:hover {
+  --cell-background: rgb(226 227 229) !important;
+}
+.chatbot-deleteLoader{
+  position:absolute;
+  top:0;
+  bottom:0;
+  width:100%;
+  height:100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 111;
+  opacity: 0.8;
+  background-color: rgb(201 201 201 / 40%);
+}
+.layout-wrapper{
+  display: grid;
+  grid-template-rows: auto;
+  grid-template-columns: 64px 1fr minmax(min-content,4fr) 1.4fr 64px;
+  max-height: calc(100vh - 58px);
+  max-width: 100%;
+}
+.layout-wrapper.drawerdropzoneclosed{
+  grid-template-columns: 64px 4fr 1.1fr 64px;
+
+}
+.layout-wrapper.drawerchatbotclosed{
+  grid-template-columns: 64px 0.6fr minmax(min-content,4fr) 64px;
+}
+.layout-wrapper.drawerclosed{
+  grid-template-columns: 64px minmax(min-content,4fr) 64px;
+}
+.main-content-wrapper{
+  display: flex;
+  flex-direction: column;
+  max-width: 100%;
+  position: relative;
+  height: 100%;
 }

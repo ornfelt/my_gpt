@@ -7,7 +7,6 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using LLama.Exceptions;
 using LLama.Native;
-using LLama.Sampling;
 using Microsoft.Extensions.Logging;
 
 namespace LLama
@@ -23,7 +22,7 @@ namespace LLama
         private readonly IContextParams _params;
         private readonly ILogger? _logger;
         private readonly LLamaBatch _batch;
-        
+
         // LLava Section
         public bool IsMultiModal => false;
 
@@ -80,15 +79,8 @@ namespace LLama
             var decoder = new StreamingTokenDecoder(Context);
             var antiprocessor = new AntipromptProcessor(inferenceParams.AntiPrompts);
 
-            // Keep track of the last N tokens emitted
-            var repeat_last_n = Math.Max(0, inferenceParams.RepeatLastTokensCount <0 ? _weights.ContextSize : inferenceParams.RepeatLastTokensCount);
-            var lastTokens = new List<LLamaToken>(repeat_last_n);
-            for (var i = 0; i < repeat_last_n; i++)
-                lastTokens.Add(0);
-
             // Tokenize the prompt
             var tokens = Context.Tokenize(prompt, special: true).ToList();
-            lastTokens.AddRange(tokens);
 
             // Evaluate the prompt, in chunks smaller than the max batch size
             var n_past = 0;
@@ -99,28 +91,11 @@ namespace LLama
                 throw new LLamaDecodeError(r);
 
             // Begin loop, evaluating one token at a time
-            var mu = (float?)null;
-            var max_tokens = inferenceParams.MaxTokens < 0 ? int.MaxValue : inferenceParams.MaxTokens;
-            for(var i = 0; i < max_tokens && !cancellationToken.IsCancellationRequested; i++)
+            var maxTokens = inferenceParams.MaxTokens < 0 ? int.MaxValue : inferenceParams.MaxTokens;
+            for(var i = 0; i < maxTokens && !cancellationToken.IsCancellationRequested; i++)
             {
-                LLamaToken id;
-                if (inferenceParams.SamplingPipeline is not null)
-                {
-                    id = inferenceParams.SamplingPipeline.Sample(Context.NativeHandle, Context.NativeHandle.GetLogitsIth(_batch.TokenCount - 1), lastTokens);
-                }
-                else
-                {
-                    // Penalize the generated tokens by various penalties
-                    var tokenDataArray = Context.ApplyPenalty(_batch.TokenCount - 1, lastTokens, inferenceParams.LogitBias, repeat_last_n,
-                        inferenceParams.RepeatPenalty, inferenceParams.FrequencyPenalty, inferenceParams.PresencePenalty, inferenceParams.PenalizeNL);
-
-                    // Sample a single token
-                    id = Context.Sample(
-                        tokenDataArray, ref mu, inferenceParams.Temperature, inferenceParams.Mirostat, inferenceParams.MirostatTau,
-                        inferenceParams.MirostatEta, inferenceParams.TopK, inferenceParams.TopP, inferenceParams.TfsZ, inferenceParams.TypicalP, inferenceParams.Grammar,
-                        inferenceParams.MinP
-                    );
-                }
+                // Sample with the pipeline
+                var id = inferenceParams.SamplingPipeline.Sample(Context.NativeHandle, _batch.TokenCount - 1);
 
                 // Check if this token should end generation
                 if (_weights.Tokens.IsEndOfGeneration(id))
@@ -135,7 +110,6 @@ namespace LLama
                 if (antiprocessor.Add(decoded))
                     break;
 
-                lastTokens.Add(id);
                 tokens.Clear();
                 tokens.Add(id);
 

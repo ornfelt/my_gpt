@@ -43,7 +43,7 @@
 </script>
 
 <div class="flex flex-col h-full justify-between space-y-3 text-sm mb-6">
-	<div class=" space-y-3">
+	<div class=" space-y-3 overflow-y-scroll max-h-[28rem] lg:max-h-full">
 		<div>
 			<div class=" mb-2.5 text-sm font-medium flex space-x-2 items-center">
 				<div>
@@ -65,8 +65,8 @@
 							{updateAvailable === null
 								? $i18n.t('Checking for updates...')
 								: updateAvailable
-								? `(v${version.latest} ${$i18n.t('available!')})`
-								: $i18n.t('(latest)')}
+									? `(v${version.latest} ${$i18n.t('available!')})`
+									: $i18n.t('(latest)')}
 						</a>
 					</div>
 

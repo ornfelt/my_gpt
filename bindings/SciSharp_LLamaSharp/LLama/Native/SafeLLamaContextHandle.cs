@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 using LLama.Exceptions;
 
@@ -47,7 +48,7 @@ namespace LLama.Native
         /// <summary>
         /// Get or set the number of threads used for generation of a single token.
         /// </summary>
-        public uint GenerationThreads
+        public int GenerationThreads
         {
             get => llama_n_threads(this);
             set => llama_set_n_threads(this, value, BatchThreads);
@@ -56,11 +57,16 @@ namespace LLama.Native
         /// <summary>
         /// Get or set the number of threads used for prompt and batch processing (multiple token).
         /// </summary>
-        public uint BatchThreads
+        public int BatchThreads
         {
             get => llama_n_threads_batch(this);
             set => llama_set_n_threads(this, GenerationThreads, value);
         }
+
+        /// <summary>
+        /// Get the pooling type for this context
+        /// </summary>
+        public LLamaPoolingType PoolingType => llama_pooling_type(this);
 
         /// <summary>
         /// Get the model which this context is using
@@ -169,7 +175,7 @@ namespace LLama.Native
         private static extern int llama_decode(SafeLLamaContextHandle ctx, LLamaNativeBatch batch);
 
         /// <summary>
-        /// Processes a batch of tokens with the ecoder part of the encoder-decoder model. Stores the encoder output
+        /// Processes a batch of tokens with the encoder part of the encoder-decoder model. Stores the encoder output
         /// internally for later use by the decoder cross-attention layers.
         /// </summary>
         /// <param name="ctx"></param>
@@ -186,7 +192,7 @@ namespace LLama.Native
         /// <param name="n_threads_batch">n_threads_batch is the number of threads used for prompt and batch processing (multiple tokens)</param>
         /// <returns></returns>
         [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
-        private static extern void llama_set_n_threads(SafeLLamaContextHandle ctx, uint n_threads, uint n_threads_batch);
+        private static extern void llama_set_n_threads(SafeLLamaContextHandle ctx, int n_threads, int n_threads_batch);
 
         /// <summary>
         /// Get the number of threads used for generation of a single token.
@@ -194,7 +200,7 @@ namespace LLama.Native
         /// <param name="ctx"></param>
         /// <returns></returns>
         [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
-        private static extern uint llama_n_threads(SafeLLamaContextHandle ctx);
+        private static extern int llama_n_threads(SafeLLamaContextHandle ctx);
 
         /// <summary>
         /// Get the number of threads used for prompt and batch processing (multiple token).
@@ -202,7 +208,7 @@ namespace LLama.Native
         /// <param name="ctx"></param>
         /// <returns></returns>
         [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
-        private static extern uint llama_n_threads_batch(SafeLLamaContextHandle ctx);
+        private static extern int llama_n_threads_batch(SafeLLamaContextHandle ctx);
 
         /// <summary>
         /// Token logits obtained from the last call to llama_decode
@@ -250,21 +256,13 @@ namespace LLama.Native
         private static extern uint llama_n_ubatch(SafeLLamaContextHandle ctx);
 
         /// <summary>
-        /// Sets the current rng seed.
-        /// </summary>
-        /// <param name="ctx"></param>
-        /// <param name="seed"></param>
-        [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
-        private static extern void llama_set_rng_seed(SafeLLamaContextHandle ctx, uint seed);
-
-        /// <summary>
-        /// Returns the maximum size in bytes of the state (rng, logits, embedding
-        /// and kv_cache) - will often be smaller after compacting tokens
+        /// Returns the **actual** size in bytes of the state (logits, embedding and kv_cache).
+        /// Only use when saving the state, not when restoring it, otherwise the size may be too small.
         /// </summary>
         /// <param name="ctx"></param>
         /// <returns></returns>
         [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
-        private static extern ulong llama_state_get_size(SafeLLamaContextHandle ctx);
+        private static extern nuint llama_state_get_size(SafeLLamaContextHandle ctx);
 
         /// <summary>
         /// Copies the state to the specified destination address.
@@ -272,47 +270,51 @@ namespace LLama.Native
         /// </summary>
         /// <param name="ctx"></param>
         /// <param name="dest"></param>
+        /// <param name="size"></param>
         /// <returns>the number of bytes copied</returns>
         [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
-        private static extern unsafe ulong llama_state_get_data(SafeLLamaContextHandle ctx, byte* dest);
+        private static extern unsafe nuint llama_state_get_data(SafeLLamaContextHandle ctx, byte* dest, nuint size);
 
         /// <summary>
         /// Set the state reading from the specified address
         /// </summary>
         /// <param name="ctx"></param>
         /// <param name="src"></param>
+        /// <param name="size"></param>
         /// <returns>the number of bytes read</returns>
         [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
-        private static extern unsafe ulong llama_state_set_data(SafeLLamaContextHandle ctx, byte* src);
+        private static extern unsafe nuint llama_state_set_data(SafeLLamaContextHandle ctx, byte* src, nuint size);
 
         /// <summary>
         /// Get the exact size needed to copy the KV cache of a single sequence
         /// </summary>
         [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
-        private static extern nuint llama_state_seq_get_size(SafeLLamaContextHandle ctx, LLamaSeqId seq_id);
+        private static extern nuint llama_state_seq_get_size(SafeLLamaContextHandle ctx, LLamaSeqId seqId);
 
         /// <summary>
         /// Copy the KV cache of a single sequence into the specified buffer
         /// </summary>
         /// <param name="ctx"></param>
         /// <param name="dst"></param>
-        /// <param name="seq_id"></param>
+        /// <param name="size"></param>
+        /// <param name="seqId"></param>
         /// <returns></returns>
         [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
-        private static extern unsafe nuint llama_state_seq_get_data(SafeLLamaContextHandle ctx, byte* dst, LLamaSeqId seq_id);
+        private static extern unsafe nuint llama_state_seq_get_data(SafeLLamaContextHandle ctx, byte* dst, nuint size, LLamaSeqId seqId);
 
         /// <summary>
         /// Copy the sequence data (originally copied with `llama_state_seq_get_data`) into the specified sequence
         /// </summary>
         /// <param name="ctx"></param>
         /// <param name="src"></param>
-        /// <param name="dest_seq_id"></param>
+        /// <param name="size"></param>
+        /// <param name="destSeqId"></param>
         /// <returns>
         ///  - Positive: Ok
         ///  - Zero: Failed to load
         /// </returns>
         [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
-        private static extern unsafe nuint llama_state_seq_set_data(SafeLLamaContextHandle ctx, byte* src, LLamaSeqId dest_seq_id);
+        private static extern unsafe nuint llama_state_seq_set_data(SafeLLamaContextHandle ctx, byte* src, nuint size, LLamaSeqId destSeqId);
 
         /// <summary>
         /// Defragment the KV cache. This will be applied:
@@ -331,19 +333,14 @@ namespace LLama.Native
         [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
         private static extern void llama_kv_cache_update(SafeLLamaContextHandle ctx);
 
-        /// <summary>
-        /// get performance information
-        /// </summary>
-        /// <param name="ctx"></param>
         [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
-        private static extern LLamaTimings llama_get_timings(SafeLLamaContextHandle ctx);
-        
-        /// <summary>
-        /// Reset performance information
-        /// </summary>
-        /// <param name="ctx"></param>
+        private static extern LLamaPerfContextTimings llama_perf_context(SafeLLamaContextHandle ctx);
+
         [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
-        private static extern void llama_reset_timings(SafeLLamaContextHandle ctx);
+        private static extern void llama_perf_context_print(SafeLLamaContextHandle ctx);
+
+        [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern void llama_perf_context_reset(SafeLLamaContextHandle ctx);
 
         /// <summary>
         /// Wait until all computations are finished. This is automatically done when using any of the functions to obtain computation results
@@ -352,24 +349,109 @@ namespace LLama.Native
         /// <param name="ctx"></param>
         [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
         private static extern void llama_synchronize(SafeLLamaContextHandle ctx);
-        #endregion
+
+        [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern int llama_lora_adapter_set(SafeLLamaContextHandle context, IntPtr adapter, float scale);
+
+        [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern int llama_lora_adapter_remove(SafeLLamaContextHandle context, IntPtr adapter);
+
+        [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern int llama_lora_adapter_clear(SafeLLamaContextHandle context);
 
         /// <summary>
-        /// Token logits obtained from the last call to llama_decode
-        /// The logits for the last token are stored in the last row
+        /// Get the pooling type for this context
+        /// </summary>
+        /// <param name="ctx"></param>
+        /// <returns></returns>
+        [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern LLamaPoolingType llama_pooling_type(SafeLLamaContextHandle ctx);
+
+        /// <summary>
+        /// Get the embeddings for a sequence id.
+        /// Returns NULL if pooling_type is LLAMA_POOLING_TYPE_NONE
+        /// when pooling_type == LLAMA_POOLING_TYPE_RANK, returns float[1] with the rank of the sequence
+        /// otherwise: float[n_embd] (1-dimensional)
+        /// </summary>
+        /// <returns>A pointer to the first float in an embedding, length = ctx.EmbeddingSize</returns>
+        [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern unsafe float* llama_get_embeddings_seq(SafeLLamaContextHandle ctx, LLamaSeqId id);
+
+        /// <summary>
+        /// Get the embeddings for the ith sequence.
+        /// Equivalent to: llama_get_embeddings(ctx) + ctx->output_ids[i]*n_embd
+        /// </summary>
+        /// <returns>A pointer to the first float in an embedding, length = ctx.EmbeddingSize</returns>
+        [DllImport(NativeApi.libraryName, CallingConvention = CallingConvention.Cdecl)]
+        private static extern unsafe float* llama_get_embeddings_ith(SafeLLamaContextHandle ctx, int i);
+        #endregion
+
+        #region LoRA
+        /// <summary>
+        /// Add a LoRA adapter to this context
+        /// </summary>
+        /// <param name="lora"></param>
+        /// <param name="scale"></param>
+        /// <exception cref="ArgumentException"></exception>
+        /// <exception cref="RuntimeError"></exception>
+        public void AddLoraAdapter(LoraAdapter lora, float scale)
+        {
+            if (lora.Model != ModelHandle)
+                throw new ArgumentException("Cannot add LoRA adapter which was loaded for a different model");
+            if (!lora.Loaded)
+                throw new ArgumentException("Cannot add LoRA adapter which has been unloaded");
+
+            var err = llama_lora_adapter_set(this, lora.Pointer, scale);
+            if (err != 0)
+                throw new RuntimeError("Failed to set lora adapter");
+        }
+
+        /// <summary>
+        /// Remove a LoRA adapter from this context
+        /// </summary>
+        /// <param name="lora"></param>
+        /// <returns>Indicates if the lora was in this context and was remove</returns>
+        public bool RemoveLoraAdapter(LoraAdapter lora)
+        {
+            if (lora.Model != ModelHandle)
+                return false;
+
+            var err = llama_lora_adapter_remove(this, lora.Pointer);
+            return err == 0;
+        }
+
+        /// <summary>
+        /// Remove all LoRA adapters from this context
+        /// </summary>
+        public void ClearLoraAdapters()
+        {
+            llama_lora_adapter_clear(this);
+        }
+        #endregion
+
+        #region GetLogits
+        /// <summary>
+        /// Token logits obtained from the last call to llama_decode.
+        /// The logits for the last token are stored in the last row.
+        /// Only tokens with `logits = true` requested are present.<br/>
         /// Can be mutated in order to change the probabilities of the next token.<br />
         /// Rows: n_tokens<br />
         /// Cols: n_vocab
         /// </summary>
+        /// <param name="numTokens">
+        /// The amount of tokens whose logits should be retrieved, in <b>[numTokens X n_vocab]</b> format.<br/>
+        /// Tokens' order is based on their order in the LlamaBatch (so, first tokens are first, etc).<br/>
+        /// This is helpful when requesting logits for many tokens in a sequence, or want to decode multiple sequences in one go.
+        /// </param>
         /// <returns></returns>
-        public Span<float> GetLogits()
+        public Span<float> GetLogits(int numTokens = 1)
         {
             var model = ThrowIfDisposed();
 
             unsafe
             {
                 var logits = llama_get_logits(this);
-                return new Span<float>(logits, model.VocabCount);
+                return new Span<float>(logits, model.VocabCount * numTokens);
             }
         }
 
@@ -385,9 +467,49 @@ namespace LLama.Native
             unsafe
             {
                 var logits = llama_get_logits_ith(this, i);
+                if (logits == null)
+                    throw new GetLogitsInvalidIndexException(i);
+
                 return new Span<float>(logits, model.VocabCount);
             }
         }
+        #endregion
+
+        #region GetEmbeddings()
+        /// <summary>
+        /// Get the embeddings for the ith sequence.
+        /// Equivalent to: llama_get_embeddings(ctx) + ctx->output_ids[i]*n_embd
+        /// </summary>
+        /// <returns>A pointer to the first float in an embedding, length = ctx.EmbeddingSize</returns>
+        public Span<float> GetEmbeddingsIth(LLamaPos pos)
+        {
+            var model = ThrowIfDisposed();
+
+            unsafe
+            {
+                var embd = llama_get_embeddings_ith(this, pos.Value);
+                Debug.Assert(embd != null);
+                return new Span<float>(embd, model.EmbeddingSize);
+            }
+        }
+
+        /// <summary>
+        /// Get the embeddings for the a specific sequence.
+        /// Equivalent to: llama_get_embeddings(ctx) + ctx->output_ids[i]*n_embd
+        /// </summary>
+        /// <returns>A pointer to the first float in an embedding, length = ctx.EmbeddingSize</returns>
+        public Span<float> GetEmbeddingsSeq(LLamaSeqId seq)
+        {
+            var model = ThrowIfDisposed();
+
+            unsafe
+            {
+                var embd = llama_get_embeddings_seq(this, seq);
+                Debug.Assert(embd != null);
+                return new Span<float>(embd, model.EmbeddingSize);
+            }
+        }
+        #endregion
 
         #region tokens
         /// <summary>
@@ -437,6 +559,22 @@ namespace LLama.Native
         {
             lock (GlobalInferenceLock)
                 llama_synchronize(this);
+        }
+
+        /// <summary>
+        /// Processes a batch of tokens with the encoder part of the encoder-decoder model. Stores the encoder output
+        /// internally for later use by the decoder cross-attention layers.
+        /// </summary>
+        /// <param name="batch"></param>
+        /// <returns>0 = success <br />&lt; 0 = error</returns>
+        public DecodeResult Encode(LLamaBatch batch)
+        {
+            if (batch.TokenCount == 0)
+                return DecodeResult.Ok;
+
+            lock (GlobalInferenceLock)
+                using (batch.ToNativeBatch(out var nb))
+                    return (DecodeResult)llama_encode(this, nb);
         }
 
         /// <summary>
@@ -517,7 +655,7 @@ namespace LLama.Native
         /// <summary>
         /// Get the size of the state, when saved as bytes
         /// </summary>
-        public ulong GetStateSize()
+        public nuint GetStateSize()
         {
             return llama_state_get_size(this);
         }
@@ -527,7 +665,7 @@ namespace LLama.Native
         /// </summary>
         /// <param name="sequence"></param>
         /// <returns></returns>
-        public ulong GetStateSize(LLamaSeqId sequence)
+        public nuint GetStateSize(LLamaSeqId sequence)
         {
             return llama_state_seq_get_size(this, sequence);
         }
@@ -539,13 +677,13 @@ namespace LLama.Native
         /// <param name="size">Number of bytes available to write to in dest (check required size with `GetStateSize()`)</param>
         /// <returns>The number of bytes written to dest</returns>
         /// <exception cref="ArgumentOutOfRangeException">Thrown if dest is too small</exception>
-        public unsafe ulong GetState(byte* dest, ulong size)
+        public unsafe nuint GetState(byte* dest, nuint size)
         {
             var required = GetStateSize();
             if (size < required)
                 throw new ArgumentOutOfRangeException(nameof(size), $"Allocated space is too small, {size} < {required}");
 
-            return llama_state_get_data(this, dest);
+            return llama_state_get_data(this, dest, size);
         }
 
         /// <summary>
@@ -555,23 +693,24 @@ namespace LLama.Native
         /// <param name="size">Number of bytes available to write to in dest (check required size with `GetStateSize()`)</param>
         /// <param name="sequence">The sequence to get state data for</param>
         /// <returns>The number of bytes written to dest</returns>
-        public unsafe ulong GetState(byte* dest, ulong size, LLamaSeqId sequence)
+        public unsafe nuint GetState(byte* dest, nuint size, LLamaSeqId sequence)
         {
             var required = GetStateSize(sequence);
             if (size < required)
                 throw new ArgumentOutOfRangeException(nameof(size), $"Allocated space is too small, {size} < {required}");
 
-            return llama_state_seq_get_data(this, dest, sequence);
+            return llama_state_seq_get_data(this, dest, size, sequence);
         }
 
         /// <summary>
         /// Set the raw state of this context
         /// </summary>
         /// <param name="src">The pointer to read the state from</param>
+        /// <param name="size">Number of bytes that can be safely read from the pointer</param>
         /// <returns>Number of bytes read from the src pointer</returns>
-        public unsafe ulong SetState(byte* src)
+        public unsafe nuint SetState(byte* src, nuint size)
         {
-            return llama_state_set_data(this, src);
+            return llama_state_set_data(this, src, size);
         }
 
         /// <summary>
@@ -579,30 +718,22 @@ namespace LLama.Native
         /// </summary>
         /// <param name="src">The pointer to read the state from</param>
         /// <param name="sequence">Sequence ID to set</param>
+        /// <param name="size">Number of bytes that can be safely read from the pointer</param>
         /// <returns>Number of bytes read from the src pointer</returns>
-        public unsafe ulong SetState(byte* src, LLamaSeqId sequence)
+        public unsafe nuint SetState(byte* src, nuint size, LLamaSeqId sequence)
         {
-            return llama_state_seq_set_data(this, src, sequence);
+            return llama_state_seq_set_data(this, src, size, sequence);
         }
         #endregion
-
-        /// <summary>
-        /// Set the RNG seed
-        /// </summary>
-        /// <param name="seed"></param>
-        public void SetSeed(uint seed)
-        {
-            llama_set_rng_seed(this, seed);
-        }
 
         #region timing
         /// <summary>
         /// Get performance information
         /// </summary>
         /// <returns></returns>
-        public LLamaTimings GetTimings()
+        public LLamaPerfContextTimings GetTimings()
         {
-            return llama_get_timings(this);
+            return llama_perf_context(this);
         }
         
         /// <summary>
@@ -610,10 +741,9 @@ namespace LLama.Native
         /// </summary>
         public void ResetTimings()
         {
-            llama_reset_timings(this);
+            llama_perf_context_reset(this);
         }
         #endregion
-
 
         #region KV Cache Management
         /// <summary>
@@ -733,6 +863,16 @@ namespace LLama.Native
         public void KvCacheSequenceDivide(LLamaSeqId seq, LLamaPos p0, LLamaPos p1, int divisor)
         {
             NativeApi.llama_kv_cache_seq_div(this, seq, p0, p1, divisor);
+        }
+
+        /// <summary>
+        /// Returns the largest position present in the KV cache for the specified sequence
+        /// </summary>
+        /// <param name="seq"></param>
+        /// <returns></returns>
+        public LLamaPos KvCacheMaxPosition(LLamaSeqId seq)
+        {
+            return NativeApi.llama_kv_cache_seq_pos_max(this, seq);
         }
         #endregion
     }

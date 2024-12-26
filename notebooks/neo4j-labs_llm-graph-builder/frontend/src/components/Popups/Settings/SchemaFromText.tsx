@@ -1,27 +1,13 @@
-import { Checkbox, Dialog, Textarea } from '@neo4j-ndl/react';
+import { Checkbox, Dialog, TextArea } from '@neo4j-ndl/react';
 import { useCallback, useState } from 'react';
 import { getNodeLabelsAndRelTypesFromText } from '../../../services/SchemaFromTextAPI';
 import { useCredentials } from '../../../context/UserCredentials';
 import { useFileContext } from '../../../context/UsersFiles';
-import { AlertColor, AlertPropsColorOverrides } from '@mui/material';
-import { OverridableStringUnion } from '@mui/types';
 import { buttonCaptions } from '../../../utils/Constants';
 import ButtonWithToolTip from '../../UI/ButtonWithToolTip';
+import { showNormalToast, showSuccessToast } from '../../../utils/toasts';
 
-const SchemaFromTextDialog = ({
-  open,
-  onClose,
-  openSettingsDialog,
-  showAlert,
-}: {
-  open: boolean;
-  onClose: () => void;
-  openSettingsDialog: () => void;
-  showAlert: (
-    alertmsg: string,
-    alerttype: OverridableStringUnion<AlertColor, AlertPropsColorOverrides> | undefined
-  ) => void;
-}) => {
+const SchemaFromTextDialog = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
   const [userText, setUserText] = useState<string>('');
   const [loading, setloading] = useState<boolean>(false);
   const { setSelectedNodes, setSelectedRels } = useFileContext();
@@ -33,7 +19,6 @@ const SchemaFromTextDialog = ({
     try {
       setloading(true);
       const response = await getNodeLabelsAndRelTypesFromText(model, userText, isSchema);
-      console.log({ response });
       setloading(false);
       if (response.data.status === 'Success') {
         if (response.data?.data?.labels.length) {
@@ -75,19 +60,15 @@ const SchemaFromTextDialog = ({
           });
         }
         if (response.data?.data?.relationshipTypes.length && response.data?.data?.labels.length) {
-          showAlert(
-            `Successfully Created ${response.data?.data?.labels.length} Node labels and ${response.data?.data?.relationshipTypes.length} Relationship labels`,
-            'success'
+          showSuccessToast(
+            `Successfully Created ${response.data?.data?.labels.length} Node labels and ${response.data?.data?.relationshipTypes.length} Relationship labels`
           );
         } else if (response.data?.data?.relationshipTypes.length && !response.data?.data?.labels.length) {
-          showAlert(
-            `Successfully Created ${response.data?.data?.relationshipTypes.length} Relationship labels`,
-            'success'
-          );
+          showSuccessToast(`Successfully Created ${response.data?.data?.relationshipTypes.length} Relationship labels`);
         } else if (!response.data?.data?.relationshipTypes.length && response.data?.data?.labels.length) {
-          showAlert(`Successfully Created ${response.data?.data?.labels.length} Node labels`, 'success');
+          showSuccessToast(`Successfully Created ${response.data?.data?.labels.length} Node labels`);
         } else {
-          showAlert(`Please give meaningfull text`, 'success');
+          showNormalToast(`Please give meaningfull text`);
         }
       } else {
         throw new Error('Unable to create labels from ');
@@ -95,7 +76,6 @@ const SchemaFromTextDialog = ({
       onClose();
       setUserText('');
       setIsSchema(false);
-      openSettingsDialog();
     } catch (error) {
       setloading(false);
       console.log(error);
@@ -105,26 +85,30 @@ const SchemaFromTextDialog = ({
   return (
     <Dialog
       size='medium'
-      open={open}
-      aria-labelledby='form-dialog-title'
+      isOpen={open}
       onClose={() => {
         setloading(false);
         setIsSchema(false);
         setUserText('');
         onClose();
       }}
+      htmlAttributes={{
+        'aria-labelledby': 'form-dialog-title',
+      }}
     >
-      <Dialog.Header id='form-dialog-title'>Entity Graph Extraction Settings</Dialog.Header>
+      <Dialog.Header>Entity Graph Extraction Settings</Dialog.Header>
       <Dialog.Content className='n-flex n-flex-col n-gap-token-4'>
-        <Textarea
+        <TextArea
           helpText='Analyze the text to extract Entities'
           label='Document Text'
           style={{
             resize: 'vertical',
           }}
-          fluid
+          isFluid={true}
           value={userText}
-          onChange={(e) => setUserText(e.target.value)}
+          htmlAttributes={{
+            onChange: (e) => setUserText(e.target.value),
+          }}
           size='large'
         />
         <Dialog.Actions className='!mt-4'>
@@ -133,12 +117,12 @@ const SchemaFromTextDialog = ({
             onChange={(e) => {
               setIsSchema(e.target.checked);
             }}
-            checked={isSchema}
+            isChecked={isSchema}
           />
           <ButtonWithToolTip
             placement='top'
             label='Analyze button'
-            text={userText.trim() === '' ? 'please fill the text to extract graph schema' : buttonCaptions.analyze}
+            text={userText.trim() === '' ? 'please fill the text to extract graph schema' : 'Analyze text for schema'}
             loading={loading}
             disabled={userText.trim() === '' || loading}
             onClick={clickHandler}

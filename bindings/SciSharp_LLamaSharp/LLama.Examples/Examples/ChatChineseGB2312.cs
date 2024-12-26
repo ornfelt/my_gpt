@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using LLama.Common;
 
 namespace LLama.Examples.Examples;
@@ -27,7 +27,6 @@ public class ChatChineseGB2312
 
         var parameters = new ModelParams(modelPath)
         {
-            Seed = 1337,
             GpuLayerCount = 5,
             Encoding = Encoding.UTF8
         };
@@ -56,9 +55,8 @@ public class ChatChineseGB2312
         session
             .WithHistoryTransform(new LLamaTransforms.DefaultHistoryTransform("用户", "坤坤"));
 
-        InferenceParams inferenceParams = new InferenceParams()
+        var inferenceParams = new InferenceParams
         {
-            Temperature = 0.9f,
             AntiPrompts = new List<string> { "用户：" }
         };
 
