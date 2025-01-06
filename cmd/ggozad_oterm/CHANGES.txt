@@ -1,6 +1,46 @@
 Changelog
 =========
 
+0.7.2 - 2025-01-03
+------------------
+
+- Ability to add custom tools!
+  [ggozad]
+
+- Add a web tool, giving Ollama access to the web.
+  [ggozad] 
+
+0.7.1 - 2025-01-02
+------------------
+
+- Support for Ollama's structured output. 
+  Use the `format` parameter to specify the output format as a JSON schema.
+
+- Ability to clear a chat, removing all messages.
+  [ggozad]
+
+0.7.0 - 2024-12-29
+------------------
+
+- Enforce foreign key constraints in the sqlite db, to allow proper cascading deletes.
+  [ggozad]
+
+- Perist images in the chat history & sqlite db.
+  [ggozad]
+
+- Update OllamaLLM client to match the use of Pydantic in olllama-python.
+  [ggozad]
+
+- Gracefully handle exceptions in tools.
+  [ggozad]
+
+- Fix documentation on keymap example in the readme.
+  [bartosz]
+
+- Update the shortcuts for new chat and close chat.
+  [pekcheey]
+
+
 0.6.9 - 2024-11-23
 ------------------
 

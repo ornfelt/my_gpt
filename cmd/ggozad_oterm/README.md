@@ -14,9 +14,9 @@ the text-based terminal client for [Ollama](https://github.com/ollama/ollama).
   - [Using](#using)
     - [Commands](#commands)
     - [Keyboard shortcuts](#keyboard-shortcuts)
+    - [Customizing models](#customizing-models)
     - [Tools](#tools)
     - [Copy / Paste](#copy--paste)
-    - [Customizing models](#customizing-models)
     - [Chat session storage](#chat-session-storage)
     - [App configuration](#app-configuration)
     - [Key bindings](#key-bindings)
@@ -99,7 +99,8 @@ By pressing <kbd>^ Ctrl</kbd>+<kbd>p</kbd> you can access the command palette fr
 * `Edit chat parameters` - edit the current chat session (change system prompt, parameters or format)
 * `Rename chat` - rename the current chat session
 * `Export chat` - export the current chat session as markdown
-* `Delete chat` - delete the current chat session  
+* `Delete chat` - delete the current chat session 
+* `Clear chat` - clear the chat history, preserving model and system prompt customizations
 * `Regenerate last Ollama message` - regenerates the last message from Ollama (will override the `seed` for the specific message with a random one.) Useful if you want to change the system prompt or parameters or just want to try again.
 * `Pull model` - pull a model or update an existing one.
 * `Change theme` - choose among the available themes.
@@ -114,6 +115,9 @@ The following keyboard shortcuts are supported:
 * <kbd>^ Ctrl</kbd>+<kbd>i</kbd> - select an image to include with the next message
 * <kbd>↑</kbd>     - navigate through history of previous prompts
 
+* <kbd>^ Ctrl</kbd>+<kbd>n</kbd> - open a new chat
+* <kbd>^ Ctrl</kbd>+<kbd>Backspace</kbd> - close the current chat
+
 * <kbd>^ Ctrl</kbd>+<kbd>Tab</kbd> - open the next chat
 * <kbd>^ Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd> - open the previous chat
 
@@ -123,20 +127,33 @@ While Ollama is inferring the next message, you can press <kbd>Esc</kbd> to canc
 
 Note that some of the shortcuts may not work in a certain context, for example pressing <kbd>↑</kbd> while the prompt is in multi-line mode.
 
+### Customizing models
+
+When creating a new chat, you may not only select the model, but also customize the following:
+* `system` instruction prompt
+* `tools` used (some sample tools are included, more to come in future versions)
+* chat `parameters` (such as context length, seed, temperature etc) passed to the model. For a list of all supported parameters refer to the [Ollama documentation](https://github.com/ollama/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values). 
+* Ouput `format`/structured output. In the format field you can specify either
+  * nothing, in which case Ollama will return the output as text. 
+  * use Ollama's *Structured Output* specifying the full format as JSON schema. See [here](https://ollama.com/blog/structured-outputs) for more information.
+
+You can also "edit" an existing chat to change the system prompt, parameters, tools or format. Note, that the model cannot be changed once the chat has started.
+
 ### Tools
 
 Since version `0.6.0` `oterm` supports integration with tools. Tools are special "functions" that can provide external information to the LLM model that it does not otherwise have access to.
 
 The following tools are currently supported:
 
+* `fetch_url` - allows your models access to the web, fetches a URL and provides the content as input to the model.
 * `date_time` - provides the current date and time in ISO format.
 * `current_location` - provides the current location of the user (longitude, latitude, city, region, country). Uses [ipinfo.io](https://ipinfo.io) to determine the location.
 * `current_weather` - provides the current weather in the user's location. Uses [OpenWeatherMap](https://openweathermap.org) to determine the weather. You need to provide your (free) API key in the OPEN_WEATHER_MAP_API_KEY environment variable.
 * `shell` - allows you to run shell commands and use the output as input to the model. Obviously this can be dangerous, so use with caution.
 
-The tooling API in Ollama does not currently support streaming. When using tools, you will have to wait for the tools & model to finish before you see the response.
+When using tools, you will have to wait for the tools & model to finish before you see the response as streaming is not currently supported.
 
-Note that tools integration is **experimental** and may change in the future. I particularly welcome contributions for new tools, but please bear in mind that any additional requirements in terms of dependencies or paid-for API usage should be kept to a minimum.
+It is (relatively) easy to add your own tools. See the [tools documentation](docs/custom_tools.md) for more information.
 
 ### Copy / Paste
 
@@ -149,12 +166,6 @@ For most terminals there exists a key modifier you can use to click and drag to 
 * `iTerm`  <kbd>Option</kbd> key.
 * `Gnome Terminal` <kbd>Shift</kbd> key.
 * `Windows Terminal` <kbd>Shift</kbd> key.
-
-### Customizing models
-
-When creating a new chat, you may not only select the model, but also customize the the `system` instruction, `tools` used, as well as the `parameters` (such as context length, seed, temperature etc) passed to the model. For a list of all supported parameters refer to the [Ollama documentation](https://github.com/ollama/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values). Checking the `JSON output` checkbox will force the model to reply in JSON format. All the models you have pulled or created will be available to `oterm`.
-
-You can also "edit" the chat to change the system prompt, parameters or format. Note, that the model cannot be changed once the chat has started.
 
 ### Chat session storage
 
